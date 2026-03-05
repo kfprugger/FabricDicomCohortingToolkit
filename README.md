@@ -1,6 +1,13 @@
-# Cohorting Data Agent & Imaging Report
+# Fabric DICOM Cohorting Toolkit
 
-Patient cohorting data agent and DICOM imaging report for Microsoft Fabric Healthcare Data Solutions (HDS).
+An end-to-end toolkit for patient cohorting and medical imaging on [Microsoft Fabric Healthcare Data Solutions (HDS)](https://learn.microsoft.com/en-us/industry/healthcare/healthcare-data-solutions/overview). It combines a natural-language data agent, a Power BI imaging report, and a zero-dependency DICOM viewer — all wired together so clinicians and researchers can identify patient cohorts, explore imaging studies, and view DICOM images directly from Fabric without provisioning Azure Health Data Services.
+
+**Key capabilities:**
+
+- **Ask questions in plain English** — the Fabric Data Agent translates natural-language cohorting queries into SQL across FHIR R4 (silver) and OMOP CDM v5.4 (gold) lakehouses
+- **Interactive imaging dashboard** — Power BI report with demographic slicers, study tables, and one-click links to view DICOM images
+- **Just-in-time DICOM viewer** — OHIF Viewer backed by a lightweight DICOMweb proxy that fetches `.dcm.zip` files on-demand from OneLake — no pre-loading, no AHDS dependency
+- **Fully open-source stack** — OHIF (MIT), pydicom (MIT), deployed to Azure Static Web Apps + Container Apps
 
 ## Overview
 

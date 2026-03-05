@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "chart_modality_v009",
+  "position": {
+    "x": 870,
+    "y": 110,
+    "z": 9000,
+    "height": 290,
+    "width": 400,
+    "tabOrder": 9000
+  },
+  "visual": {
+    "visualType": "barChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ModalityLookup"
+                    }
+                  },
+                  "Property": "ModalityName"
+                }
+              },
+              "queryRef": "ModalityLookup.ModalityName",
+              "nativeQueryRef": "ModalityName",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Total Studies"
+                }
+              },
+              "queryRef": "_Measures.Total Studies",
+              "nativeQueryRef": "Total Studies"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

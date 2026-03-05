@@ -1,0 +1,82 @@
+/// Central measures table for KPI cards and aggregations
+table _Measures
+	lineageTag: 66666666-6666-6666-6666-666666666666
+
+	measure 'Total Patients' = DISTINCTCOUNT(Patient[PatientId])
+		formatString: #,##0
+		lineageTag: a6000001-0000-0000-0000-000000000001
+
+	measure 'Total Studies' = COUNTROWS(ImagingStudy)
+		formatString: #,##0
+		lineageTag: a6000002-0000-0000-0000-000000000002
+
+	measure 'Total DICOM Files' = COUNTROWS(DicomFile)
+		formatString: #,##0
+		lineageTag: a6000003-0000-0000-0000-000000000003
+
+	measure 'Avg Age' = AVERAGE(Patient[Age])
+		formatString: #,##0.0
+		lineageTag: a6000004-0000-0000-0000-000000000004
+
+	measure 'Studies per Patient' = DIVIDE([Total Studies], [Total Patients], 0)
+		formatString: #,##0.0
+		lineageTag: a6000005-0000-0000-0000-000000000005
+
+	measure 'Files per Study' = DIVIDE([Total DICOM Files], [Total Studies], 0)
+		formatString: #,##0.0
+		lineageTag: a6000006-0000-0000-0000-000000000006
+
+	measure 'Patient Studies' =
+			VAR SelectedPatient = SELECTEDVALUE(Patient[PatientId])
+			RETURN
+			    IF(
+			        ISBLANK(SelectedPatient),
+			        [Total Studies],
+			        CALCULATE(
+			            COUNTROWS(ImagingStudy),
+			            FILTER(ImagingStudy, ImagingStudy[PatientUUID] = SELECTEDVALUE(Patient[PatientUUID]))
+			        )
+			    )
+		formatString: #,##0
+		lineageTag: a6000007-0000-0000-0000-000000000007
+
+	measure 'Patient DICOM Files' =
+			VAR SelectedPatient = SELECTEDVALUE(Patient[PatientUUID])
+			RETURN
+			    IF(
+			        ISBLANK(SelectedPatient),
+			        [Total DICOM Files],
+			        CALCULATE(
+			            COUNTROWS(DicomFile),
+			            FILTER(
+			                DicomFile,
+			                DicomFile[StudyInstanceUid] IN
+			                    SELECTCOLUMNS(
+			                        FILTER(ImagingStudy, ImagingStudy[PatientUUID] = SelectedPatient),
+			                        "uid", ImagingStudy[StudyInstanceUid]
+			                    )
+			            )
+			        )
+			    )
+		formatString: #,##0
+		lineageTag: a6000008-0000-0000-0000-000000000008
+
+	column _Measures
+		dataType: string
+		lineageTag: ab9c4136-af22-45ad-b2b0-33b54473d4b1
+		summarizeBy: none
+		sourceColumn: _Measures
+
+		annotation SummarizationSetBy = Automatic
+
+	partition _Measures = m
+		mode: import
+		source =
+				let
+				    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [#"_Measures" = _t]),
+				    #"Changed Type" = Table.TransformColumnTypes(Source,{{"_Measures", type text}})
+				in
+				    #"Changed Type"
+
+	annotation PBI_ResultType = Table
+

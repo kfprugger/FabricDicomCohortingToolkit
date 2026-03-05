@@ -1,0 +1,10 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["*.{js,css,png,jpg,jpeg,gif,ico,svg,woff,woff2,ttf,eot,map,json,wasm}"]
+  },
+  "globalHeaders": {
+    "Cross-Origin-Embedder-Policy": "credentialless",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  }
+}

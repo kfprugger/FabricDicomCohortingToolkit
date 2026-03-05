@@ -1,0 +1,23 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["Patient","ImagingStudy","DicomFile","PersonDemographics","_Measures","OhifViewerBaseUrl"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table Patient
+ref table ImagingStudy
+ref table DicomFile
+ref table PersonDemographics
+ref table ModalityLookup
+ref table _Measures
+
+ref cultureInfo en-US
+

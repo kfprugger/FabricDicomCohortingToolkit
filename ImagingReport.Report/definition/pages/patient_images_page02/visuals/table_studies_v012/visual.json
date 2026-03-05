@@ -1,0 +1,140 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "table_studies_v012",
+  "position": {
+    "x": 10,
+    "y": 80,
+    "z": 2000,
+    "height": 250,
+    "width": 620,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ImagingStudy"
+                    }
+                  },
+                  "Property": "Modality"
+                }
+              },
+              "queryRef": "ImagingStudy.Modality",
+              "nativeQueryRef": "Modality"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ModalityLookup"
+                    }
+                  },
+                  "Property": "ModalityName"
+                }
+              },
+              "queryRef": "ModalityLookup.ModalityName",
+              "nativeQueryRef": "ModalityName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ImagingStudy"
+                    }
+                  },
+                  "Property": "StudyDate"
+                }
+              },
+              "queryRef": "ImagingStudy.StudyDate",
+              "nativeQueryRef": "StudyDate"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ImagingStudy"
+                    }
+                  },
+                  "Property": "ViewerUrl"
+                }
+              },
+              "queryRef": "ImagingStudy.ViewerUrl",
+              "nativeQueryRef": "ViewerUrl"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "c0681e71341764d484d0",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "ImagingStudy"
+              }
+            },
+            "Property": "Modality"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "b6233bb2209ab514bda0",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "ModalityLookup"
+              }
+            },
+            "Property": "ModalityName"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "9f21c106dbc3421b2d0a",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "ImagingStudy"
+              }
+            },
+            "Property": "StudyDate"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "dd56d844734d6260dbaa",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "ImagingStudy"
+              }
+            },
+            "Property": "ViewerUrl"
+          }
+        },
+        "type": "Categorical"
+      }
+    ]
+  }
+}

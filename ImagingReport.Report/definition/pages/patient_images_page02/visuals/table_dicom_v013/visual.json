@@ -1,0 +1,140 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "table_dicom_v013",
+  "position": {
+    "x": 10,
+    "y": 340,
+    "z": 3000,
+    "height": 370,
+    "width": 1260,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DicomFile"
+                    }
+                  },
+                  "Property": "RenderedImageUrl"
+                }
+              },
+              "queryRef": "DicomFile.RenderedImageUrl",
+              "nativeQueryRef": "RenderedImageUrl"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DicomFile"
+                    }
+                  },
+                  "Property": "SeriesInstanceUid"
+                }
+              },
+              "queryRef": "DicomFile.SeriesInstanceUid",
+              "nativeQueryRef": "SeriesInstanceUid"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DicomFile"
+                    }
+                  },
+                  "Property": "SopInstanceUid"
+                }
+              },
+              "queryRef": "DicomFile.SopInstanceUid",
+              "nativeQueryRef": "SopInstanceUid"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DicomFile"
+                    }
+                  },
+                  "Property": "SourceModifiedAt"
+                }
+              },
+              "queryRef": "DicomFile.SourceModifiedAt",
+              "nativeQueryRef": "SourceModifiedAt"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "afa6b3701858500ea46e",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "DicomFile"
+              }
+            },
+            "Property": "RenderedImageUrl"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "ab8f72eeb84b61a0a07d",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "DicomFile"
+              }
+            },
+            "Property": "SeriesInstanceUid"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "5dcfbaa929bb22b5678b",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "DicomFile"
+              }
+            },
+            "Property": "SopInstanceUid"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "1053327a621ea24066b1",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "DicomFile"
+              }
+            },
+            "Property": "SourceModifiedAt"
+          }
+        },
+        "type": "Categorical"
+      }
+    ]
+  }
+}

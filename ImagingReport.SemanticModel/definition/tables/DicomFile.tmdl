@@ -1,0 +1,94 @@
+/// Individual DICOM file instances from ImagingMetastore
+table DicomFile
+	lineageTag: 33333333-3333-3333-3333-333333333333
+
+	column FileId
+		dataType: string
+		lineageTag: a3000001-0000-0000-0000-000000000001
+		summarizeBy: none
+		sourceColumn: FileId
+
+		annotation SummarizationSetBy = Automatic
+
+	column StudyInstanceUid
+		dataType: string
+		lineageTag: a3000002-0000-0000-0000-000000000002
+		summarizeBy: none
+		sourceColumn: StudyInstanceUid
+
+		annotation SummarizationSetBy = Automatic
+
+	column SeriesInstanceUid
+		dataType: string
+		lineageTag: a3000003-0000-0000-0000-000000000003
+		summarizeBy: none
+		sourceColumn: SeriesInstanceUid
+
+		annotation SummarizationSetBy = Automatic
+
+	column SopInstanceUid
+		dataType: string
+		lineageTag: a3000004-0000-0000-0000-000000000004
+		summarizeBy: none
+		sourceColumn: SopInstanceUid
+
+		annotation SummarizationSetBy = Automatic
+
+	column FilePath
+		dataType: string
+		lineageTag: a3000005-0000-0000-0000-000000000005
+		summarizeBy: none
+		sourceColumn: FilePath
+
+		annotation SummarizationSetBy = Automatic
+
+	column SourceSystem
+		dataType: string
+		lineageTag: a3000006-0000-0000-0000-000000000006
+		summarizeBy: none
+		sourceColumn: SourceSystem
+
+		annotation SummarizationSetBy = Automatic
+
+	column SourceModifiedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: a3000007-0000-0000-0000-000000000007
+		summarizeBy: none
+		sourceColumn: SourceModifiedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	/// OneLake HTTPS URL derived from the abfss file path
+	column OneLakeUrl =
+			VAR AbfssPath = [FilePath]
+			VAR WorkspacePart = MID(AbfssPath, 9, FIND("@", AbfssPath) - 9)
+			RETURN "https://onelake.dfs.fabric.microsoft.com/" & WorkspacePart & MID(AbfssPath, FIND("/", AbfssPath, FIND("@", AbfssPath)) + 1, LEN(AbfssPath))
+		dataType: string
+		lineageTag: a3000009-0000-0000-0000-000000000009
+		dataCategory: WebUrl
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Viewer URL for this file's study, built from OhifViewerBaseUrl parameter
+	column RenderedImageUrl
+		dataType: string
+		lineageTag: a3000008-0000-0000-0000-000000000008
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: RenderedImageUrl
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DicomFile = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("nkhahdl5to4ezo6p5bg76flepa-m7whz3hcli5edjmc6b5epuj6ze.datawarehouse.fabric.microsoft.com", "hds1_msft_silver", [Query="SELECT m.id AS FileId, m.studyInstanceUid AS StudyInstanceUid, m.seriesInstanceUid AS SeriesInstanceUid, m.sopInstanceUid AS SopInstanceUid, m.filePath AS FilePath, m.msftSourceSystem AS SourceSystem, m.sourceModifiedAt AS SourceModifiedAt FROM dbo.ImagingMetastore m"]),
+				    AddViewerUrl = Table.AddColumn(Source, "RenderedImageUrl", each OhifViewerBaseUrl & [StudyInstanceUid], type text)
+				in
+				    AddViewerUrl
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_patients_v008",
+  "position": {
+    "x": 10,
+    "y": 110,
+    "z": 8000,
+    "height": 600,
+    "width": 850,
+    "tabOrder": 8000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Patient"
+                    }
+                  },
+                  "Property": "FullName"
+                }
+              },
+              "queryRef": "Patient.FullName",
+              "nativeQueryRef": "FullName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Patient"
+                    }
+                  },
+                  "Property": "Gender"
+                }
+              },
+              "queryRef": "Patient.Gender",
+              "nativeQueryRef": "Gender"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Patient"
+                    }
+                  },
+                  "Property": "Age"
+                }
+              },
+              "queryRef": "Patient.Age",
+              "nativeQueryRef": "Age"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PersonDemographics"
+                    }
+                  },
+                  "Property": "Race"
+                }
+              },
+              "queryRef": "PersonDemographics.Race",
+              "nativeQueryRef": "Race"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Patient Studies"
+                }
+              },
+              "queryRef": "_Measures.Patient Studies",
+              "nativeQueryRef": "Patient Studies"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Patient DICOM Files"
+                }
+              },
+              "queryRef": "_Measures.Patient DICOM Files",
+              "nativeQueryRef": "Patient DICOM Files"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

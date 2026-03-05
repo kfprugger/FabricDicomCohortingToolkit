@@ -1,0 +1,12 @@
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+**/.pbi/editorSettings.json
+
+# DICOM viewer build artifacts
+dicom-viewer/ohif-build/
+dicom-viewer/proxy-deploy.zip
+dicom-viewer/proxy/.python_packages/
+dicom-viewer/proxy/dicom_index.json
+dicom-viewer/*.zip
+__pycache__/
+*.pyc

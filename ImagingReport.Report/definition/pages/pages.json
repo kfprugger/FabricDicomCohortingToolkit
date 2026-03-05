@@ -1,0 +1,8 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
+  "pageOrder": [
+    "imaging_overview_page01",
+    "patient_images_page02"
+  ],
+  "activePageName": "patient_images_page02"
+}

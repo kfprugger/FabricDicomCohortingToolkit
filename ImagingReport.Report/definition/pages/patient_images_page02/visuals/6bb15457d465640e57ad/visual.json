@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "6bb15457d465640e57ad",
+  "position": {
+    "x": 789.738219895288,
+    "y": 10.052356020942408,
+    "z": 5002,
+    "height": 72.879581151832468,
+    "width": 263.87434554973822,
+    "tabOrder": 5002
+  },
+  "visual": {
+    "visualType": "textSlicer",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PersonDemographics"
+                    }
+                  },
+                  "Property": "PatientId"
+                }
+              },
+              "queryRef": "PersonDemographics.PatientId",
+              "nativeQueryRef": "PatientId"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "30b2a66600aa03d1ed26",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "PersonDemographics"
+              }
+            },
+            "Property": "PatientId"
+          }
+        },
+        "type": "Categorical"
+      }
+    ]
+  }
+}

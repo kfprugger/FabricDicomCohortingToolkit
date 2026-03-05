@@ -1,0 +1,101 @@
+/// Patients with medical imaging from FHIR R4 silver database
+table Patient
+	lineageTag: 11111111-1111-1111-1111-111111111111
+
+	column PatientId
+		dataType: string
+		lineageTag: a1000001-0000-0000-0000-000000000001
+		summarizeBy: none
+		sourceColumn: PatientId
+
+		annotation SummarizationSetBy = Automatic
+
+	column PatientUUID
+		dataType: string
+		lineageTag: a1000002-0000-0000-0000-000000000002
+		summarizeBy: none
+		sourceColumn: PatientUUID
+
+		annotation SummarizationSetBy = Automatic
+
+	column FirstName
+		dataType: string
+		lineageTag: a1000003-0000-0000-0000-000000000003
+		summarizeBy: none
+		sourceColumn: FirstName
+
+		annotation SummarizationSetBy = Automatic
+
+	column LastName
+		dataType: string
+		lineageTag: a1000004-0000-0000-0000-000000000004
+		summarizeBy: none
+		sourceColumn: LastName
+
+		annotation SummarizationSetBy = Automatic
+
+	column Gender
+		dataType: string
+		lineageTag: a1000005-0000-0000-0000-000000000005
+		summarizeBy: none
+		sourceColumn: Gender
+
+		annotation SummarizationSetBy = Automatic
+
+	column BirthDate
+		dataType: dateTime
+		formatString: Short Date
+		lineageTag: a1000006-0000-0000-0000-000000000006
+		summarizeBy: none
+		sourceColumn: BirthDate
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Full display name; falls back to truncated PatientId when name is absent
+	column FullName = IF(ISBLANK([FirstName]) && ISBLANK([LastName]), "Patient " & LEFT([PatientId], 12), TRIM([FirstName] & " " & [LastName]))
+		dataType: string
+		lineageTag: a1000007-0000-0000-0000-000000000007
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Patient age in years from birth date
+	column Age = IF(ISBLANK([BirthDate]), BLANK(), DATEDIFF([BirthDate], TODAY(), YEAR))
+		dataType: int64
+		formatString: 0
+		lineageTag: a1000008-0000-0000-0000-000000000008
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Age grouped into bands for slicer filtering
+	column AgeRange =
+			SWITCH(
+			    TRUE(),
+			    ISBLANK([Age]), "Unknown",
+			    [Age] < 18, "0-17",
+			    [Age] < 30, "18-29",
+			    [Age] < 40, "30-39",
+			    [Age] < 50, "40-49",
+			    [Age] < 60, "50-59",
+			    [Age] < 70, "60-69",
+			    [Age] < 80, "70-79",
+			    "80+"
+			)
+		dataType: string
+		lineageTag: a1000009-0000-0000-0000-000000000009
+		summarizeBy: none
+		sortByColumn: Age
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Patient = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("nkhahdl5to4ezo6p5bg76flepa-m7whz3hcli5edjmc6b5epuj6ze.datawarehouse.fabric.microsoft.com", "hds1_msft_silver", [Query="SELECT DISTINCT p.id AS PatientId, p.idOrig AS PatientUUID, JSON_VALUE(p.name_string, '$[0].given[0]') AS FirstName, JSON_VALUE(p.name_string, '$[0].family') AS LastName, p.gender AS Gender, CAST(p.birthDate AS DATE) AS BirthDate FROM dbo.Patient p INNER JOIN dbo.ImagingStudy i ON JSON_VALUE(i.subject_string, '$.identifier.value') = p.idOrig"])
+				in
+				    Source
+
+	annotation PBI_ResultType = Table
+

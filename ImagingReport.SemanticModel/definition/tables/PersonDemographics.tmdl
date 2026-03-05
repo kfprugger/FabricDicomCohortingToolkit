@@ -1,0 +1,38 @@
+/// Race and ethnicity demographics from OMOP gold database
+table PersonDemographics
+	lineageTag: 44444444-4444-4444-4444-444444444444
+
+	column PatientId
+		dataType: string
+		lineageTag: a4000001-0000-0000-0000-000000000001
+		summarizeBy: none
+		sourceColumn: PatientId
+
+		annotation SummarizationSetBy = Automatic
+
+	column Race
+		dataType: string
+		lineageTag: a4000002-0000-0000-0000-000000000002
+		summarizeBy: none
+		sourceColumn: Race
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ethnicity
+		dataType: string
+		lineageTag: a4000003-0000-0000-0000-000000000003
+		summarizeBy: none
+		sourceColumn: Ethnicity
+
+		annotation SummarizationSetBy = Automatic
+
+	partition PersonDemographics = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("nkhahdl5to4ezo6p5bg76flepa-m7whz3hcli5edjmc6b5epuj6ze.datawarehouse.fabric.microsoft.com", "hds1_msft_gold_omop", [Query="SELECT p.person_source_value AS PatientId, COALESCE(c1.concept_name, 'Unknown') AS Race, COALESCE(c2.concept_name, 'Unknown') AS Ethnicity FROM dbo.person p LEFT JOIN dbo.concept c1 ON p.race_concept_id = c1.concept_id LEFT JOIN dbo.concept c2 ON p.ethnicity_concept_id = c2.concept_id"])
+				in
+				    Source
+
+	annotation PBI_ResultType = Table
+

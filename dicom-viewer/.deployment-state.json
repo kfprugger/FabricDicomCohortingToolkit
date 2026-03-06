@@ -1,0 +1,6 @@
+{
+  "fabricWorkspace": "HDSv102025",
+  "fabricDatabase": "healthcare1_msft_silver",
+  "fabricServer": "nkhahdl5to4ezo6p5bg76flepa-67tff2vfirruzb3vgxvk3ctizq.datawarehouse.fabric.microsoft.com",
+  "resourceGroup": "rg-hds-dicom"
+}

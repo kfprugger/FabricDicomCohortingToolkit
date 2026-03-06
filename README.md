@@ -5,9 +5,9 @@ An end-to-end toolkit for patient cohorting and medical imaging on [Microsoft Fa
 **Key capabilities:**
 
 - **Ask questions in plain English** — the Fabric Data Agent translates natural-language cohorting queries into SQL across FHIR R4 (silver) and OMOP CDM v5.4 (gold) lakehouses
-- **Interactive imaging dashboard** — Power BI report with demographic slicers, study tables, and one-click links to view DICOM images
+- **Interactive imaging dashboard** — Power BI report with demographic slicers, study tables, drillthrough from patient overview to patient-specific imaging details, and one-click links to view DICOM images
 - **Just-in-time DICOM viewer** — OHIF Viewer backed by a lightweight DICOMweb proxy that fetches `.dcm.zip` files on-demand from OneLake — no pre-loading, no AHDS dependency
-- **Fully open-source stack** — OHIF (MIT), pydicom (MIT), deployed to Azure Static Web Apps + Container Apps
+- **Idempotent workspace-aware deployment** — specify a Fabric workspace name and the deploy script auto-discovers the SQL endpoint, rebuilds the DICOM index, and skips redeploy if nothing changed
 
 ## Overview
 
@@ -81,8 +81,9 @@ cohortingDataAgent/
 │           └── patient_images_page02/    # Patient detail: study table, DICOM files, viewer links
 │
 └── dicom-viewer/                       # DICOM Viewer deployment
-    ├── Deploy-DicomViewer.ps1          # One-command deployment script
+    ├── Deploy-DicomViewer.ps1          # One-command deployment (workspace-aware, idempotent)
     ├── build_index.py                  # Build study index from Fabric ImagingMetastore
+    ├── .deployment-state.json          # Tracks current workspace/server for idempotent checks
     ├── infra/
     │   ├── main.bicep                  # ACR + Container App + Static Web App
     │   └── main.bicepparam
@@ -127,12 +128,14 @@ Power BI Desktop project with two report pages:
 - KPI cards: Total Patients, Total Studies, Total DICOM Files
 - Patient table with demographics and study counts
 - Modality distribution bar chart, Gender donut chart
+- **Drillthrough:** Right-click a patient row → Drillthrough → Patient Images to jump to page 2 filtered to that patient
 
 **Page 2 — Patient Images:**
 
 ![Patient Images Page](docs/img/Patient%20Images%20-%20Report%20Page%202.png)
 
 - Patient name slicer, Modality slicer, PatientId text search
+- Drillthrough target — filtered automatically when navigating from page 1
 - Studies table with clickable ViewerUrl (opens OHIF Viewer)
 - DICOM files table with RenderedImageUrl links
 - Patient Studies and Patient DICOM Files KPI cards
@@ -162,12 +165,17 @@ Open-source DICOM viewing stack — no AHDS dependency, no pre-loading.
 ```powershell
 cd dicom-viewer
 
-# 1. Build the study index from Fabric
-pip install pyodbc azure-identity
-python build_index.py --output proxy/dicom_index.json
+# Deploy (auto-discovers SQL endpoint, rebuilds index, deploys infra)
+.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "my-hds-workspace"
 
-# 2. Deploy everything
-.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -Location westus3
+# Switch to a different workspace (detects change, redeploys automatically)
+.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "other-workspace"
+
+# Re-run same workspace (idempotent — skips if nothing changed)
+.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "my-hds-workspace"
+
+# Force redeploy even if unchanged
+.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "my-hds-workspace" -Force
 ```
 
 **Post-deployment:**
@@ -190,11 +198,15 @@ Set via the `OhifViewerBaseUrl` M parameter in `expressions/OhifViewerBaseUrl.tm
 
 ### DICOM Viewer Proxy
 
-The proxy's `dicom_index.json` maps studyInstanceUid → OneLake file paths. Rebuild it when new imaging data is ingested:
+The proxy's `dicom_index.json` maps studyInstanceUid → OneLake file paths. The deploy script automatically rebuilds the index when you specify `-FabricWorkspaceName`. To manually rebuild:
 ```powershell
+$env:FABRIC_SERVER = "<sql-endpoint>.datawarehouse.fabric.microsoft.com"
+$env:FABRIC_DB = "<silver-lakehouse-name>"
 python build_index.py --output proxy/dicom_index.json
-.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -SkipOhifBuild
+.\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "my-workspace" -Force
 ```
+
+The deploy script stores workspace state in `.deployment-state.json`. On re-run, it compares the current Fabric workspace's SQL endpoint and database name against the saved state — if unchanged, it skips the redeploy. If a different workspace is specified, it rebuilds the index and redeploys the proxy container.
 
 ## .gitignore Recommendations
 
@@ -205,6 +217,7 @@ proxy-deploy.zip
 *.python_packages/
 __pycache__/
 .pbi/cache.abf
+.deployment-state.json
 ```
 
 ## License

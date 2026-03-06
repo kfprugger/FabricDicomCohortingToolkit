@@ -1,46 +1,179 @@
 <#
 .SYNOPSIS
-    Deploy OHIF Viewer + DICOMweb Proxy (Function App) to Azure.
+    Deploy OHIF Viewer + DICOMweb Proxy (Container App) to Azure, connected to a Fabric workspace.
 
 .DESCRIPTION
-    1. Deploys DICOMweb proxy (Function App) + OHIF (Static Web App) via Bicep
-    2. Deploys proxy Function App code (reads DICOM from OneLake JIT)
-    3. Builds OHIF Viewer with proxy URL baked into config
-    4. Deploys OHIF static files to Azure Static Web App
+    1. Discovers the Silver Lakehouse SQL endpoint from the specified Fabric workspace
+    2. Checks deployment state — skips if workspace/server/database haven't changed
+    3. Rebuilds the DICOM index from ImagingMetastore (via SQL endpoint)
+    4. Deploys DICOMweb proxy (Container App) + OHIF (Static Web App) via Bicep
+    5. Builds OHIF Viewer with proxy URL baked into config
+    6. Deploys OHIF static files to Azure Static Web App
 
     DICOM files stay in OneLake — no pre-loading. The proxy fetches on-demand.
+    Idempotent: re-run with the same workspace and it skips. Change workspace and it redeploys.
 
 .PARAMETER ResourceGroup
     Azure resource group name (created if it doesn't exist)
 
+.PARAMETER FabricWorkspaceName
+    Name of the Fabric workspace containing the Silver Lakehouse with ImagingMetastore
+
 .PARAMETER Location
     Azure region (default: westus3)
 
-.PARAMETER BaseName
-    Base name prefix for resources (default: hds-dicom)
+.PARAMETER Force
+    Force redeploy even if workspace hasn't changed
 
 .EXAMPLE
-    .\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -Location westus3
+    .\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "my-hds-workspace"
+
+.EXAMPLE
+    # Switch to a different workspace
+    .\Deploy-DicomViewer.ps1 -ResourceGroup rg-hds-dicom -FabricWorkspaceName "other-workspace"
 #>
 
 param(
     [Parameter(Mandatory)]
     [string]$ResourceGroup,
 
+    [Parameter(Mandatory)]
+    [string]$FabricWorkspaceName,
+
     [string]$Location = "westus3",
     [string]$SwaLocation = "westus2",
     [string]$BaseName = "hds-dicom",
-    [switch]$SkipOhifBuild
+    [switch]$SkipOhifBuild,
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
+$stateFile = Join-Path $scriptDir ".deployment-state.json"
 
 Write-Host "`n=== DICOM Viewer Deployment (JIT from OneLake) ===" -ForegroundColor Cyan
-Write-Host "Resource Group : $ResourceGroup"
-Write-Host "Location       : $Location"
-Write-Host "SWA Location   : $SwaLocation"
-Write-Host "Base Name      : $BaseName`n"
+Write-Host "Resource Group   : $ResourceGroup"
+Write-Host "Fabric Workspace : $FabricWorkspaceName"
+Write-Host "Location         : $Location"
+Write-Host "SWA Location     : $SwaLocation"
+Write-Host "Base Name        : $BaseName`n"
+
+# ── 0. Discover Fabric workspace SQL endpoint + Silver Lakehouse ──
+Write-Host "[0/6] Discovering Fabric workspace..." -ForegroundColor Yellow
+
+function Get-FabricAccessToken {
+    $tokenObj = Get-AzAccessToken -ResourceUrl "https://api.fabric.microsoft.com"
+    $rawToken = $tokenObj.Token
+    if ($rawToken -is [System.Security.SecureString]) {
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($rawToken)
+        try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    }
+    elseif ($rawToken -is [string]) { return $rawToken }
+    else { return $rawToken | ConvertFrom-SecureString -AsPlainText }
+}
+
+$fabricToken = Get-FabricAccessToken
+$fabricHeaders = @{ "Authorization" = "Bearer $fabricToken" }
+$fabricApi = "https://api.fabric.microsoft.com/v1"
+
+# Find workspace
+$workspaces = (Invoke-RestMethod -Uri "$fabricApi/workspaces" -Headers $fabricHeaders).value
+$ws = $workspaces | Where-Object { $_.displayName -eq $FabricWorkspaceName }
+if (-not $ws) {
+    Write-Error "Fabric workspace '$FabricWorkspaceName' not found. Check the name and your access."
+    exit 1
+}
+$fabricWorkspaceId = $ws.id
+Write-Host "  \u2713 Workspace: $FabricWorkspaceName ($fabricWorkspaceId)" -ForegroundColor Green
+
+# Find Silver Lakehouse
+$lakehouses = (Invoke-RestMethod -Uri "$fabricApi/workspaces/$fabricWorkspaceId/lakehouses" -Headers $fabricHeaders).value
+$silverLh = $lakehouses | Where-Object { $_.displayName -match '[Ss]ilver' }
+if (-not $silverLh) {
+    Write-Error "No Silver Lakehouse found in workspace '$FabricWorkspaceName'."
+    exit 1
+}
+if ($silverLh -is [array]) { $silverLh = $silverLh[0] }
+$silverLhName = $silverLh.displayName
+Write-Host "  \u2713 Silver Lakehouse: $silverLhName ($($silverLh.id))" -ForegroundColor Green
+
+# Get SQL analytics endpoint
+$lhDetail = Invoke-RestMethod -Uri "$fabricApi/workspaces/$fabricWorkspaceId/lakehouses/$($silverLh.id)" -Headers $fabricHeaders
+$sqlEndpoint = $null
+if ($lhDetail.properties -and $lhDetail.properties.sqlEndpointProperties) {
+    $sqlEndpoint = $lhDetail.properties.sqlEndpointProperties.connectionString
+}
+if (-not $sqlEndpoint) {
+    # Fallback: try oneLakeTablesPath or construct from workspace
+    try { $sqlEndpoint = $lhDetail.properties.sqlEndpointProperties.provisioningStatus } catch {}
+}
+if (-not $sqlEndpoint) {
+    # Use the SQL analytics endpoint items API
+    $sqlItems = (Invoke-RestMethod -Uri "$fabricApi/workspaces/$fabricWorkspaceId/sqlEndpoints" -Headers $fabricHeaders -ErrorAction SilentlyContinue).value
+    $sqlItem = $sqlItems | Where-Object { $_.displayName -eq $silverLhName }
+    if ($sqlItem) {
+        try {
+            $sqlDetail = Invoke-RestMethod -Uri "$fabricApi/workspaces/$fabricWorkspaceId/sqlEndpoints/$($sqlItem.id)" -Headers $fabricHeaders
+            $sqlEndpoint = $sqlDetail.properties.connectionString
+        } catch {}
+    }
+}
+if (-not $sqlEndpoint) {
+    Write-Host "  \u26a0 Could not auto-detect SQL endpoint. Falling back to manual entry." -ForegroundColor Yellow
+    Write-Host "    Find it in: Fabric portal \u2192 Silver Lakehouse \u2192 SQL analytics endpoint \u2192 Copy connection string" -ForegroundColor Gray
+    $sqlEndpoint = Read-Host "  Enter SQL endpoint server (e.g., xxxxx.datawarehouse.fabric.microsoft.com)"
+}
+
+# Clean up the SQL endpoint — extract just the server hostname
+$fabricServer = $sqlEndpoint -replace '^.*Server=', '' -replace ';.*$', '' -replace ',$', ''
+if ($fabricServer -notmatch 'datawarehouse\.fabric\.microsoft\.com') {
+    $fabricServer = $sqlEndpoint  # Use as-is if it's already a hostname
+}
+Write-Host "  \u2713 SQL Endpoint: $fabricServer" -ForegroundColor Green
+Write-Host "  \u2713 Database: $silverLhName" -ForegroundColor Green
+
+# ── Idempotent check: compare with previous deployment state ──
+$currentState = @{
+    fabricWorkspace = $FabricWorkspaceName
+    fabricServer    = $fabricServer
+    fabricDatabase  = $silverLhName
+    resourceGroup   = $ResourceGroup
+}
+
+$needsRedeploy = $true
+if ((Test-Path $stateFile) -and -not $Force) {
+    $previousState = Get-Content $stateFile | ConvertFrom-Json
+    if ($previousState.fabricServer -eq $fabricServer -and
+        $previousState.fabricDatabase -eq $silverLhName -and
+        $previousState.resourceGroup -eq $ResourceGroup) {
+        Write-Host "`n  \u2713 Deployment state unchanged — workspace, server, and database match." -ForegroundColor Green
+        Write-Host "    Skipping redeploy. Use -Force to redeploy anyway." -ForegroundColor Gray
+        $needsRedeploy = $false
+    } else {
+        Write-Host "`n  \u26a0 Workspace changed:" -ForegroundColor Yellow
+        if ($previousState.fabricServer -ne $fabricServer)     { Write-Host "    Server:   $($previousState.fabricServer) \u2192 $fabricServer" -ForegroundColor White }
+        if ($previousState.fabricDatabase -ne $silverLhName)   { Write-Host "    Database: $($previousState.fabricDatabase) \u2192 $silverLhName" -ForegroundColor White }
+        if ($previousState.resourceGroup -ne $ResourceGroup)   { Write-Host "    RG:       $($previousState.resourceGroup) \u2192 $ResourceGroup" -ForegroundColor White }
+        Write-Host "    Proceeding with full redeploy..." -ForegroundColor White
+    }
+}
+
+if (-not $needsRedeploy) { exit 0 }
+
+# ── Rebuild DICOM index from new workspace ──
+Write-Host "`n  Rebuilding DICOM index from $silverLhName..." -ForegroundColor White
+$env:FABRIC_SERVER = $fabricServer
+$env:FABRIC_DB = $silverLhName
+
+$indexOutput = Join-Path $scriptDir "proxy" "dicom_index.json"
+try {
+    python (Join-Path $scriptDir "build_index.py") --output $indexOutput --server $fabricServer --database $silverLhName
+    Write-Host "  \u2713 DICOM index rebuilt" -ForegroundColor Green
+} catch {
+    Write-Error "Failed to build DICOM index: $_"
+    exit 1
+}
 
 # ── 1. Create RG if needed ──
 Write-Host "[1/6] Ensuring resource group exists..." -ForegroundColor Yellow
@@ -51,7 +184,7 @@ Write-Host "`n[2/6] Building proxy container image..." -ForegroundColor Yellow
 
 $proxyDir = "$scriptDir\proxy"
 if (-not (Test-Path "$proxyDir\dicom_index.json")) {
-    Write-Error "dicom_index.json not found in proxy/. Run: python build_index.py --output proxy/dicom_index.json"
+    Write-Error "dicom_index.json not found in proxy/. The index rebuild in step 0 may have failed."
     exit 1
 }
 
@@ -174,19 +307,22 @@ Write-Host "  OHIF deployed" -ForegroundColor Green
 
 # ── 6. Summary ──
 Write-Host "`n[6/6] Deployment complete!" -ForegroundColor Yellow
+
+# Save deployment state for idempotent checks
+$currentState | ConvertTo-Json | Set-Content $stateFile
+Write-Host "  Deployment state saved to .deployment-state.json" -ForegroundColor DarkGray
+
 Write-Host "`n=== Deployment Complete ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "OHIF Viewer    : https://$swaHostname" -ForegroundColor Green
-Write-Host "DICOMweb Proxy : $proxyUrl" -ForegroundColor Green
+Write-Host "Fabric Workspace : $FabricWorkspaceName" -ForegroundColor Green
+Write-Host "SQL Endpoint     : $fabricServer" -ForegroundColor Green
+Write-Host "Database         : $silverLhName" -ForegroundColor Green
+Write-Host "OHIF Viewer      : https://$swaHostname" -ForegroundColor Green
+Write-Host "DICOMweb Proxy   : $proxyUrl" -ForegroundColor Green
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Build the DICOM index from Fabric ImagingMetastore:"
-Write-Host "     pip install pyodbc azure-identity"
-Write-Host "     python build_index.py --output proxy/dicom_index.json"
+Write-Host "To switch workspaces, re-run with a different -FabricWorkspaceName:" -ForegroundColor Yellow
+Write-Host "  .\Deploy-DicomViewer.ps1 -ResourceGroup $ResourceGroup -FabricWorkspaceName `"<new-workspace>`""
 Write-Host ""
-Write-Host "  2. Redeploy the proxy with the index:"
-Write-Host "     .\Deploy-DicomViewer.ps1 -ResourceGroup $ResourceGroup -SkipOhifBuild"
-Write-Host ""
-Write-Host "  3. Open viewer for a specific study:"
-Write-Host "     https://$swaHostname/viewer?StudyInstanceUIDs=<study-uid>"
+Write-Host "Open viewer for a specific study:" -ForegroundColor Yellow
+Write-Host "  https://$swaHostname/viewer?StudyInstanceUIDs=<study-uid>"
 Write-Host ""

@@ -1,22 +1,105 @@
 {
-    "Show all patients with their full name, date of birth, and gender": "SELECT idOrig AS patient_id, JSON_VALUE(name_string, '$[0].given[0]') AS first_name, JSON_VALUE(name_string, '$[0].given[1]') AS middle_name, JSON_VALUE(name_string, '$[0].family') AS last_name, birthDate, gender FROM dbo.Patient",
-    "List all patients with their full name, city, state, and phone number": "SELECT idOrig AS patient_id, JSON_VALUE(name_string, '$[0].given[0]') AS first_name, JSON_VALUE(name_string, '$[0].family') AS last_name, gender, JSON_VALUE(address_string, '$[0].city') AS city, JSON_VALUE(address_string, '$[0].state') AS state, JSON_VALUE(telecom_string, '$[0].value') AS phone FROM dbo.Patient",
-    "Show patients who have had an MRI and their full names": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'MR'",
-    "Show me the names of all patients who have had an MRI": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'MR'",
-    "Find patients who have CT imaging with their name and imaging date": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'CT'",
-    "List all conditions with their clinical status and patient name": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.clinicalStatus_string, '$.coding[0].code') AS clinical_status, fc.recordedDate FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig",
-    "Find all patients diagnosed with diabetes and show their names": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, fc.onsetDateTime, fc.recordedDate FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE fc.code_string LIKE '%diabetes%'",
-    "Show all allergies with patient name and criticality": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(ai.code_string, '$.coding[0].display') AS allergy, ai.criticality, JSON_VALUE(ai.clinicalStatus_string, '$.coding[0].code') AS clinical_status FROM dbo.AllergyIntolerance ai JOIN dbo.Patient p ON JSON_VALUE(ai.patient_string, '$.idOrig') = p.idOrig",
-    "List imaging studies with patient name and modality": "SELECT DISTINCT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started, s.modality_code AS modality, ims.numberOfSeries, ims.numberOfInstances, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig",
-    "Show radiology diagnostic reports with patient name and report conclusion": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, dr.conclusion, JSON_VALUE(dr.code_string, '$.coding[0].display') AS report_type, dr.effectiveDateTime FROM dbo.DiagnosticReport dr JOIN dbo.Patient p ON JSON_VALUE(dr.subject_string, '$.idOrig') = p.idOrig WHERE dr.imagingStudy_string IS NOT NULL",
-    "List all medications with patient name and medication details": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig",
-    "Show the full names of all patients who have a MedicationRequest for lisinopril": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig WHERE mr.medicationCodeableConcept_string LIKE '%lisinopril%'",
-    "Find patients on metformin and show their names": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig WHERE mr.medicationCodeableConcept_string LIKE '%metformin%'",
-    "Find all female patients over 65 with their conditions and severity": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, p.gender, DATEDIFF(YEAR, p.birthDate, GETDATE()) AS age, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.severity_string, '$.coding[0].display') AS severity FROM dbo.Patient p LEFT JOIN dbo.Condition fc ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE p.gender = 'female' AND DATEDIFF(YEAR, p.birthDate, GETDATE()) > 65",
-    "Show patients with cancer conditions including staging information": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.stage_string, '$.summary.coding[0].display') AS stage, JSON_VALUE(fc.clinicalStatus_string, '$.coding[0].code') AS clinical_status, JSON_VALUE(fc.severity_string, '$.coding[0].display') AS severity FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE fc.code_string LIKE '%cancer%'",
-    "Find patients with a condition who also have CT imaging": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, ims.started AS imaging_date, ims.description FROM dbo.Patient p JOIN dbo.Condition fc ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig JOIN dbo.ImagingStudy ims ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s WHERE s.modality_code = 'CT'",
-    "List deceased patients with their name and date of death": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, p.deceasedDateTime, p.gender, p.birthDate FROM dbo.Patient p WHERE p.deceasedBoolean = 'true' OR p.deceasedDateTime IS NOT NULL",
-    "Show patients with encounters including visit type and dates": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(enc.class_string, '$.code') AS encounter_class, JSON_VALUE(enc.type_string, '$[0].coding[0].display') AS encounter_type, JSON_VALUE(enc.period_string, '$.start') AS visit_start, JSON_VALUE(enc.period_string, '$.end') AS visit_end FROM dbo.Encounter enc JOIN dbo.Patient p ON JSON_VALUE(enc.subject_string, '$.idOrig') = p.idOrig",
-    "How many patients do we have broken down by gender": "SELECT gender, COUNT(*) AS patient_count FROM dbo.Patient GROUP BY gender ORDER BY patient_count DESC",
-    "Find patients allergic to penicillin with their name and criticality": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(ai.code_string, '$.coding[0].display') AS allergy, ai.criticality FROM dbo.AllergyIntolerance ai JOIN dbo.Patient p ON JSON_VALUE(ai.patient_string, '$.idOrig') = p.idOrig WHERE ai.code_string LIKE '%penicillin%'"
+  "$schema": "1.0.0",
+  "fewShots": [
+    {
+      "id": "ce98dd34-0c48-48ce-b55e-46bc6479158b",
+      "question": "Show all patients with their full name, date of birth, and gender",
+      "query": "SELECT idOrig AS patient_id, JSON_VALUE(name_string, '$[0].given[0]') AS first_name, JSON_VALUE(name_string, '$[0].given[1]') AS middle_name, JSON_VALUE(name_string, '$[0].family') AS last_name, birthDate, gender FROM dbo.Patient"
+    },
+    {
+      "id": "51390600-b2da-4c3d-a9bf-a53efff9a68d",
+      "question": "List all patients with their full name, city, state, and phone number",
+      "query": "SELECT idOrig AS patient_id, JSON_VALUE(name_string, '$[0].given[0]') AS first_name, JSON_VALUE(name_string, '$[0].family') AS last_name, gender, JSON_VALUE(address_string, '$[0].city') AS city, JSON_VALUE(address_string, '$[0].state') AS state, JSON_VALUE(telecom_string, '$[0].value') AS phone FROM dbo.Patient"
+    },
+    {
+      "id": "c47c58ec-7361-4aef-8644-2d40d5bee8a4",
+      "question": "Show patients who have had an MRI and their full names",
+      "query": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'MR'"
+    },
+    {
+      "id": "810c8d7d-e225-4c08-8162-d82ebce727ba",
+      "question": "Show me the names of all patients who have had an MRI",
+      "query": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'MR'"
+    },
+    {
+      "id": "7e9ecd1b-19f8-4225-9562-76f6826af406",
+      "question": "Find patients who have CT imaging with their name and imaging date",
+      "query": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started AS imaging_date, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig WHERE s.modality_code = 'CT'"
+    },
+    {
+      "id": "6fc8a522-35b4-4654-80d2-cc707598f715",
+      "question": "List all conditions with their clinical status and patient name",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.clinicalStatus_string, '$.coding[0].code') AS clinical_status, fc.recordedDate FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig"
+    },
+    {
+      "id": "d89b06a9-7b24-4c4b-9da1-bd4fc2aeb84f",
+      "question": "Find all patients diagnosed with diabetes and show their names",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, fc.onsetDateTime, fc.recordedDate FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE fc.code_string LIKE '%diabetes%'"
+    },
+    {
+      "id": "8d86359c-1296-411b-b6d6-5f2a49f04cdd",
+      "question": "Show all allergies with patient name and criticality",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(ai.code_string, '$.coding[0].display') AS allergy, ai.criticality, JSON_VALUE(ai.clinicalStatus_string, '$.coding[0].code') AS clinical_status FROM dbo.AllergyIntolerance ai JOIN dbo.Patient p ON JSON_VALUE(ai.patient_string, '$.idOrig') = p.idOrig"
+    },
+    {
+      "id": "e4c8ccc0-ba11-4a87-a973-959879f0b1c1",
+      "question": "List imaging studies with patient name and modality",
+      "query": "SELECT DISTINCT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, ims.started, s.modality_code AS modality, ims.numberOfSeries, ims.numberOfInstances, ims.description FROM dbo.ImagingStudy ims CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig"
+    },
+    {
+      "id": "c4a0933e-6d3b-4490-a22f-67a8ba9834a2",
+      "question": "Show radiology diagnostic reports with patient name and report conclusion",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, dr.conclusion, JSON_VALUE(dr.code_string, '$.coding[0].display') AS report_type, dr.effectiveDateTime FROM dbo.DiagnosticReport dr JOIN dbo.Patient p ON JSON_VALUE(dr.subject_string, '$.idOrig') = p.idOrig WHERE dr.imagingStudy_string IS NOT NULL"
+    },
+    {
+      "id": "63450866-9541-41e1-8122-40b9cb525de6",
+      "question": "List all medications with patient name and medication details",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig"
+    },
+    {
+      "id": "1441a6d7-68ac-4ccf-ad79-fd34f30f620a",
+      "question": "Show the full names of all patients who have a MedicationRequest for lisinopril",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig WHERE mr.medicationCodeableConcept_string LIKE '%lisinopril%'"
+    },
+    {
+      "id": "e3a960a8-501d-4e05-961c-23d3bf27e497",
+      "question": "Find patients on metformin and show their names",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(mr.medicationCodeableConcept_string, '$.coding[0].display') AS medication, mr.status, mr.authoredOn FROM dbo.MedicationRequest mr JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig WHERE mr.medicationCodeableConcept_string LIKE '%metformin%'"
+    },
+    {
+      "id": "cc3741eb-f51f-468a-b3f4-8111bd277c84",
+      "question": "Find all female patients over 65 with their conditions and severity",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, p.gender, DATEDIFF(YEAR, p.birthDate, GETDATE()) AS age, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.severity_string, '$.coding[0].display') AS severity FROM dbo.Patient p LEFT JOIN dbo.Condition fc ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE p.gender = 'female' AND DATEDIFF(YEAR, p.birthDate, GETDATE()) > 65"
+    },
+    {
+      "id": "933f073b-df26-4041-8696-df2a4dcfb8ec",
+      "question": "Show patients with cancer conditions including staging information",
+      "query": "SELECT p.idOrig AS patient_id, JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, JSON_VALUE(fc.stage_string, '$.summary.coding[0].display') AS stage, JSON_VALUE(fc.clinicalStatus_string, '$.coding[0].code') AS clinical_status, JSON_VALUE(fc.severity_string, '$.coding[0].display') AS severity FROM dbo.Condition fc JOIN dbo.Patient p ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig WHERE fc.code_string LIKE '%cancer%'"
+    },
+    {
+      "id": "86fbf835-5a30-4047-9142-dc204efe366f",
+      "question": "Find patients with a condition who also have CT imaging",
+      "query": "SELECT DISTINCT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(fc.code_string, '$.coding[0].display') AS condition_name, ims.started AS imaging_date, ims.description FROM dbo.Patient p JOIN dbo.Condition fc ON JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig JOIN dbo.ImagingStudy ims ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig CROSS APPLY OPENJSON(ims.series_string) WITH (modality_code NVARCHAR(10) '$.modality.code') AS s WHERE s.modality_code = 'CT'"
+    },
+    {
+      "id": "3a09f2a4-9bb8-4507-b4c7-132e2f105b36",
+      "question": "List deceased patients with their name and date of death",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, p.deceasedDateTime, p.gender, p.birthDate FROM dbo.Patient p WHERE p.deceasedBoolean = 'true' OR p.deceasedDateTime IS NOT NULL"
+    },
+    {
+      "id": "4fcd2723-0db5-421b-baed-113784c283af",
+      "question": "Show patients with encounters including visit type and dates",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(enc.class_string, '$.code') AS encounter_class, JSON_VALUE(enc.type_string, '$[0].coding[0].display') AS encounter_type, JSON_VALUE(enc.period_string, '$.start') AS visit_start, JSON_VALUE(enc.period_string, '$.end') AS visit_end FROM dbo.Encounter enc JOIN dbo.Patient p ON JSON_VALUE(enc.subject_string, '$.idOrig') = p.idOrig"
+    },
+    {
+      "id": "9a101c74-4fa8-42ab-baaa-46e4a006f9ef",
+      "question": "How many patients do we have broken down by gender",
+      "query": "SELECT gender, COUNT(*) AS patient_count FROM dbo.Patient GROUP BY gender ORDER BY patient_count DESC"
+    },
+    {
+      "id": "28103a92-5177-4c81-8aff-26174f027503",
+      "question": "Find patients allergic to penicillin with their name and criticality",
+      "query": "SELECT JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name, JSON_VALUE(p.name_string, '$[0].family') AS last_name, JSON_VALUE(ai.code_string, '$.coding[0].display') AS allergy, ai.criticality FROM dbo.AllergyIntolerance ai JOIN dbo.Patient p ON JSON_VALUE(ai.patient_string, '$.idOrig') = p.idOrig WHERE ai.code_string LIKE '%penicillin%'"
+    }
+  ]
 }

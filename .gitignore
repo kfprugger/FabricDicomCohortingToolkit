@@ -10,3 +10,5 @@ dicom-viewer/proxy/dicom_index.json
 dicom-viewer/*.zip
 __pycache__/
 *.pyc
+dicom-viewer/.deployment-state.json
+

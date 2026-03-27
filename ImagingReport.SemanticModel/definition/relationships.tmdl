@@ -2,19 +2,13 @@ relationship aaaa0001-bbbb-cccc-dddd-eeee00000001
 	crossFilteringBehavior: bothDirections
 	fromColumn: ImagingStudy.PatientUUID
 	toColumn: Patient.PatientUUID
-
 relationship aaaa0002-bbbb-cccc-dddd-eeee00000002
 	crossFilteringBehavior: bothDirections
 	fromColumn: DicomFile.StudyInstanceUid
 	toColumn: ImagingStudy.StudyInstanceUid
-
 relationship aaaa0003-bbbb-cccc-dddd-eeee00000003
 	crossFilteringBehavior: bothDirections
 	fromCardinality: one
 	fromColumn: PersonDemographics.PatientId
 	toColumn: Patient.PatientId
-
-relationship aaaa0004-bbbb-cccc-dddd-eeee00000004
-	fromColumn: ImagingStudy.Modality
-	toColumn: ModalityLookup.ModalityCode
 

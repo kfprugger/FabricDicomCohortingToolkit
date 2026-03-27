@@ -20,13 +20,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "ModalityLookup"
+                      "Entity": "ImagingStudy"
                     }
                   },
                   "Property": "ModalityName"
                 }
               },
-              "queryRef": "ModalityLookup.ModalityName",
+              "queryRef": "ImagingStudy.ModalityName",
               "nativeQueryRef": "ModalityName",
               "active": true
             }
@@ -98,7 +98,7 @@
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "ModalityLookup"
+                "Entity": "ImagingStudy"
               }
             },
             "Property": "ModalityName"

@@ -10,20 +10,5 @@
     "type": "Default",
     "parameters": [],
     "referenceScope": "CrossReport"
-  },
-  "drillthrough": {
-    "fields": [
-      {
-        "Column": {
-          "Expression": {
-            "SourceRef": {
-              "Entity": "Patient"
-            }
-          },
-          "Property": "FullName"
-        }
-      }
-    ],
-    "keepAllFilters": true
   }
 }

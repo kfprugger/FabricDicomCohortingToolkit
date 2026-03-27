@@ -1,4 +1,3 @@
-/// Central measures table for KPI cards and aggregations
 table _Measures
 	lineageTag: 66666666-6666-6666-6666-666666666666
 
@@ -61,22 +60,21 @@ table _Measures
 		formatString: #,##0
 		lineageTag: a6000008-0000-0000-0000-000000000008
 
-	column _Measures
+	column _MeasuresKey
 		dataType: string
 		lineageTag: ab9c4136-af22-45ad-b2b0-33b54473d4b1
 		summarizeBy: none
-		sourceColumn: _Measures
+		sourceColumn: PatientId
+		isHidden
 
 		annotation SummarizationSetBy = Automatic
 
-	partition _Measures = m
-		mode: import
-		source =
-				let
-				    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [#"_Measures" = _t]),
-				    #"Changed Type" = Table.TransformColumnTypes(Source,{{"_Measures", type text}})
-				in
-				    #"Changed Type"
+	partition _Measures = entity
+		mode: directLake
+		source
+			entityName: PatientReporting
+			schemaName: dbo
+			expressionSource: ReportingSource
 
 	annotation PBI_ResultType = Table
 

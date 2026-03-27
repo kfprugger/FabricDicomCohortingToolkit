@@ -1,4 +1,5 @@
-/// Lookup table mapping DICOM modality codes to display names, filtered to modalities present in the data
+/// Modality code to name mapping via DAX SWITCH
+/// In Direct Lake mode, this is a calculated table using DATATABLE
 table ModalityLookup
 	lineageTag: 55555555-5555-5555-5555-555555555555
 
@@ -21,33 +22,28 @@ table ModalityLookup
 		annotation SummarizationSetBy = Automatic
 
 	partition ModalityLookup = calculated
-		mode: import
 		source =
-				VAR _AllCodes =
-				    DATATABLE(
-				        "ModalityCode", STRING,
-				        "ModalityName", STRING,
-				        {
-				            {"CT", "Computed Tomography"},
-				            {"MR", "Magnetic Resonance (MRI)"},
-				            {"MG", "Mammography"},
-				            {"CR", "Computed Radiography"},
-				            {"NM", "Nuclear Medicine"},
-				            {"PT", "Positron Emission Tomography (PET)"},
-				            {"OP", "Ophthalmic Photography"},
-				            {"OPT", "Ophthalmic Tomography (OCT)"},
-				            {"XC", "External-camera Photography"},
-				            {"US", "Ultrasound"},
-				            {"XA", "X-Ray Angiography"},
-				            {"DX", "Digital Radiography"},
-				            {"SC", "Secondary Capture"},
-				            {"RF", "Radiofluoroscopy"},
-				            {"IO", "Intra-Oral Radiography"}
-				        }
-				    )
-				VAR _UsedCodes = DISTINCT(ImagingStudy[Modality])
-				RETURN
-				    FILTER(_AllCodes, [ModalityCode] IN _UsedCodes)
+				DATATABLE(
+				    "ModalityCode", STRING,
+				    "ModalityName", STRING,
+				    {
+				        {"CT", "Computed Tomography"},
+				        {"MR", "Magnetic Resonance (MRI)"},
+				        {"MG", "Mammography"},
+				        {"CR", "Computed Radiography"},
+				        {"NM", "Nuclear Medicine"},
+				        {"PT", "Positron Emission Tomography (PET)"},
+				        {"OP", "Ophthalmic Photography"},
+				        {"OPT", "Ophthalmic Tomography (OCT)"},
+				        {"XC", "External-camera Photography"},
+				        {"US", "Ultrasound"},
+				        {"XA", "X-Ray Angiography"},
+				        {"DX", "Digital Radiography"},
+				        {"SC", "Secondary Capture"},
+				        {"RF", "Radiofluoroscopy"},
+				        {"IO", "Intra-Oral Radiography"}
+				    }
+				)
 
 	annotation PBI_Id = 55555555555555555555555555555555
 

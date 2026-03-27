@@ -34,13 +34,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "ModalityLookup"
+                      "Entity": "ImagingStudy"
                     }
                   },
                   "Property": "ModalityName"
                 }
               },
-              "queryRef": "ModalityLookup.ModalityName",
+              "queryRef": "ImagingStudy.ModalityName",
               "nativeQueryRef": "ModalityName"
             },
             {
@@ -99,7 +99,7 @@
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "ModalityLookup"
+                "Entity": "ImagingStudy"
               }
             },
             "Property": "ModalityName"
@@ -117,20 +117,6 @@
               }
             },
             "Property": "StudyDate"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "dd56d844734d6260dbaa",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "ImagingStudy"
-              }
-            },
-            "Property": "ViewerUrl"
           }
         },
         "type": "Categorical"

@@ -1,4 +1,3 @@
-/// Imaging studies from the FHIR R4 ImagingStudy resource
 table ImagingStudy
 	lineageTag: 22222222-2222-2222-2222-222222222222
 
@@ -61,16 +60,23 @@ table ImagingStudy
 
 		annotation SummarizationSetBy = Automatic
 
-	/// Year extracted from StudyDate for time-based analysis
-	column StudyYear = IF(ISBLANK([StudyDate]), BLANK(), YEAR([StudyDate]))
+	column StudyYear
 		dataType: int64
 		formatString: 0
 		lineageTag: a2000009-0000-0000-0000-000000000009
 		summarizeBy: none
+		sourceColumn: StudyYear
 
 		annotation SummarizationSetBy = Automatic
 
-	/// OHIF Viewer URL, built from OhifViewerBaseUrl parameter
+	column ModalityName
+		dataType: string
+		lineageTag: a2000013-0000-0000-0000-000000000013
+		summarizeBy: none
+		sourceColumn: ModalityName
+
+		annotation SummarizationSetBy = Automatic
+
 	column ViewerUrl
 		dataType: string
 		lineageTag: a2000008-0000-0000-0000-000000000008
@@ -80,14 +86,12 @@ table ImagingStudy
 
 		annotation SummarizationSetBy = Automatic
 
-	partition ImagingStudy = m
-		mode: import
-		source =
-				let
-				    Source = Sql.Database("nkhahdl5to4ezo6p5bg76flepa-m7whz3hcli5edjmc6b5epuj6ze.datawarehouse.fabric.microsoft.com", "hds1_msft_silver", [Query="SELECT i.id AS StudyId, JSON_VALUE(i.identifier_string, '$[0].value') AS StudyInstanceUid, JSON_VALUE(i.subject_string, '$.identifier.value') AS PatientUUID, JSON_VALUE(i.series_string, '$[0].modality.code') AS Modality, i.started AS StudyDate, i.numberOfSeries AS NumberOfSeries, i.numberOfInstances AS NumberOfInstances FROM dbo.ImagingStudy i"]),
-				    AddViewerUrl = Table.AddColumn(Source, "ViewerUrl", each OhifViewerBaseUrl & [StudyInstanceUid], type text)
-				in
-				    AddViewerUrl
+	partition ImagingStudy = entity
+		mode: directLake
+		source
+			entityName: ImagingStudyReporting
+			schemaName: dbo
+			expressionSource: ReportingSource
 
 	annotation PBI_ResultType = Table
 

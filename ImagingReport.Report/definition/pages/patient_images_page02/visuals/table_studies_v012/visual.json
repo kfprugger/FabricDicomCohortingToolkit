@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "table_studies_v012",
   "position": {
-    "x": 10,
-    "y": 80,
+    "x": 9.3023960028767174,
+    "y": 80.620765358264876,
     "z": 2000,
-    "height": 250,
-    "width": 620,
+    "height": 249.61429274385858,
+    "width": 911.63480828191825,
     "tabOrder": 2000
   },
   "visual": {
@@ -117,6 +117,20 @@
               }
             },
             "Property": "StudyDate"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "6066cedf891ee008ae39",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "ImagingStudy"
+              }
+            },
+            "Property": "ViewerUrl"
           }
         },
         "type": "Categorical"

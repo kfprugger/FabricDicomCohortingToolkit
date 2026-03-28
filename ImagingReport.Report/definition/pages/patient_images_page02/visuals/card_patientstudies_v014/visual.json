@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "card_patientstudies_v014",
   "position": {
-    "x": 640,
-    "y": 80,
+    "x": 948.84439229342513,
+    "y": 220.15670540141565,
     "z": 4000,
-    "height": 100,
-    "width": 300,
+    "height": 99.225557364018314,
+    "width": 299.22707142586773,
     "tabOrder": 4000
   },
   "visual": {

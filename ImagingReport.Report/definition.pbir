@@ -2,8 +2,8 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
   "version": "4.0",
   "datasetReference": {
-    "byPath": {
-      "path": "../ImagingReport.SemanticModel"
+    "byConnection": {
+      "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/med-device-rti-hds-0327;initial catalog=ImagingReport;integrated security=ClaimsToken;semanticmodelid=96a2fe26-de97-408f-9080-d83120a382e3"
     }
   }
 }

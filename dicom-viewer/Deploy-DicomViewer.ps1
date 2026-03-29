@@ -40,7 +40,7 @@ param(
     [Parameter(Mandatory)]
     [string]$FabricWorkspaceName,
 
-    [string]$Location = "westus3",
+    [string]$Location = "eastus",
     [string]$SwaLocation = "westus2",
     [string]$BaseName = "hds-dicom",
     [switch]$SkipOhifBuild,

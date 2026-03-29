@@ -27,20 +27,24 @@ Full name:
 
 | Table | Join Column | Join Expression |
 |---|---|---|
-| Condition | subject_string | JSON_VALUE(fc.subject_string, '$.idOrig') = p.idOrig |
-| Encounter | subject_string | JSON_VALUE(enc.subject_string, '$.idOrig') = p.idOrig |
-| MedicationRequest | subject_string | JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig |
-| Observation | subject_string | JSON_VALUE(obs.subject_string, '$.idOrig') = p.idOrig |
-| DiagnosticReport | subject_string | JSON_VALUE(dr.subject_string, '$.idOrig') = p.idOrig |
-| [Procedure] | subject_string | JSON_VALUE(pr.subject_string, '$.idOrig') = p.idOrig |
-| **AllergyIntolerance** | **patient_string** | JSON_VALUE(ai.**patient_string**, '$.idOrig') = p.idOrig |
+| Condition | subject_string | JSON_VALUE(fc.subject_string, '$.msftSourceReference') = p.idOrig |
+| Encounter | subject_string | JSON_VALUE(enc.subject_string, '$.msftSourceReference') = p.idOrig |
+| MedicationRequest | subject_string | JSON_VALUE(mr.subject_string, '$.msftSourceReference') = p.idOrig |
+| Observation | subject_string | JSON_VALUE(obs.subject_string, '$.msftSourceReference') = p.idOrig |
+| DiagnosticReport | subject_string | JSON_VALUE(dr.subject_string, '$.msftSourceReference') = p.idOrig |
+| [Procedure] | subject_string | JSON_VALUE(pr.subject_string, '$.msftSourceReference') = p.idOrig |
+| **AllergyIntolerance** | **patient_string** | JSON_VALUE(ai.**patient_string**, '$.msftSourceReference') = p.idOrig |
 | **ImagingStudy** | **subject_string** | JSON_VALUE(ims.subject_string, '**$.identifier.value**') = p.idOrig |
 
-IMPORTANT: ImagingStudy uses $.identifier.value (NOT $.idOrig — it is null in ImagingStudy). AllergyIntolerance uses patient_string (NOT subject_string).
+IMPORTANT: Most tables use $.msftSourceReference (NOT $.idOrig — idOrig is null in subject_string).
+ImagingStudy uses $.identifier.value (a different path). AllergyIntolerance uses patient_string (NOT subject_string).
 
 ## IMAGINGSTUDY QUERIES (CRITICAL — MOST COMMON FAILURE POINT)
 
 modality_string is ALWAYS NULL. Modality is inside series_string. You MUST use CROSS APPLY:
+
+IMPORTANT: Some series_string values are truncated at 8000 chars causing JSON parse errors.
+ALWAYS add this filter to avoid truncated JSON: AND ISJSON(ims.series_string) = 1
 
   SELECT DISTINCT
     JSON_VALUE(p.name_string, '$[0].given[0]') AS first_name,
@@ -52,7 +56,12 @@ modality_string is ALWAYS NULL. Modality is inside series_string. You MUST use C
       modality_code NVARCHAR(10) '$.modality.code'
   ) AS s
   JOIN dbo.Patient p ON JSON_VALUE(ims.subject_string, '$.identifier.value') = p.idOrig
-  WHERE s.modality_code = 'MR'
+  WHERE s.modality_code = 'CT'
+    AND ISJSON(ims.series_string) = 1
+
+Similarly, when using JSON_VALUE on code_string or any _string column in a WHERE or aggregation,
+add ISJSON(column) = 1 to skip truncated rows:
+  WHERE ISJSON(fc.code_string) = 1 AND fc.code_string LIKE '%COPD%'
 
 Modality code mapping: MRI→MR, CT scan→CT, mammogram→MG, X-ray→CR, PET scan→PT, nuclear medicine→NM, OCT→OPT, fundus photo→OP
 
@@ -80,7 +89,7 @@ All medications are in dbo.MedicationRequest (dbo.MedicationStatement has 0 rows
     mr.status,
     mr.authoredOn
   FROM dbo.MedicationRequest mr
-  JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.idOrig') = p.idOrig
+  JOIN dbo.Patient p ON JSON_VALUE(mr.subject_string, '$.msftSourceReference') = p.idOrig
   WHERE mr.medicationCodeableConcept_string LIKE '%lisinopril%'
 
 ## OTHER SILVER RULES
@@ -95,14 +104,14 @@ All medications are in dbo.MedicationRequest (dbo.MedicationStatement has 0 rows
 | Table | Key Columns | Join to Patient |
 |---|---|---|
 | Patient | id (SHA-256), idOrig (UUID), name_string, gender, birthDate, address_string, telecom_string, deceasedBoolean, deceasedDateTime | — |
-| Condition | code_string ($.coding[0].display), clinicalStatus_string, severity_string, stage_string, onsetDateTime, recordedDate | subject_string $.idOrig |
+| Condition | code_string ($.coding[0].display), clinicalStatus_string, severity_string, stage_string, onsetDateTime, recordedDate | subject_string $.msftSourceReference |
 | ImagingStudy | started, numberOfSeries, numberOfInstances, description, series_string ($.modality.code) | subject_string $.identifier.value |
-| DiagnosticReport | conclusion, code_string, effectiveDateTime, imagingStudy_string | subject_string $.idOrig |
-| AllergyIntolerance | code_string, criticality, type, reaction_string, clinicalStatus_string | patient_string $.idOrig |
-| MedicationRequest | medicationCodeableConcept_string ($.coding[0].display), status, authoredOn | subject_string $.idOrig |
-| Observation | category_string, code_string, valueQuantity_string, valueString | subject_string $.idOrig |
-| Encounter | class_string ($.code), type_string, period_string ($.start, $.end) | subject_string $.idOrig |
-| [Procedure] | code_string, performedDateTime, bodySite_string | subject_string $.idOrig |
+| DiagnosticReport | conclusion, code_string, effectiveDateTime, imagingStudy_string | subject_string $.msftSourceReference |
+| AllergyIntolerance | code_string, criticality, type, reaction_string, clinicalStatus_string | patient_string $.msftSourceReference |
+| MedicationRequest | medicationCodeableConcept_string ($.coding[0].display), status, authoredOn | subject_string $.msftSourceReference |
+| Observation | category_string, code_string, valueQuantity_string, valueString | subject_string $.msftSourceReference |
+| Encounter | class_string ($.code), type_string, period_string ($.start, $.end) | subject_string $.msftSourceReference |
+| [Procedure] | code_string, performedDateTime, bodySite_string | subject_string $.msftSourceReference |
 | ImagingMetastore | studyInstanceUid, seriesInstanceUid, sopInstanceUid, metadata_string, filePath | — |
 
 ## GOLD DATABASE (OMOP — analytics only, NO patient names)

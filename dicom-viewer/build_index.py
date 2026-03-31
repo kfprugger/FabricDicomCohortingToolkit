@@ -24,11 +24,8 @@ import pyodbc
 from azure.identity import DefaultAzureCredential
 
 
-FABRIC_SERVER = os.environ.get(
-    "FABRIC_SERVER",
-    "nkhahdl5to4ezo6p5bg76flepa-m7whz3hcli5edjmc6b5epuj6ze.datawarehouse.fabric.microsoft.com",
-)
-FABRIC_DB = os.environ.get("FABRIC_DB", "hds1_msft_silver")
+FABRIC_SERVER = os.environ.get("FABRIC_SERVER", "")
+FABRIC_DB = os.environ.get("FABRIC_DB", "")
 
 
 def get_access_token() -> str:
@@ -49,6 +46,11 @@ def main():
     parser.add_argument("--server", default=FABRIC_SERVER)
     parser.add_argument("--database", default=FABRIC_DB)
     args = parser.parse_args()
+
+    if not args.server or not args.database:
+        parser.error(
+            "--server and --database are required (or set FABRIC_SERVER / FABRIC_DB env vars)"
+        )
 
     print(f"Connecting to {args.server}/{args.database}...")
     token = get_access_token()

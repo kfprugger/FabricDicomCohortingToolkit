@@ -425,14 +425,56 @@ try {
     Write-Host "  ✓ Took ownership of semantic model" -ForegroundColor Green
 } catch {}
 
-# Check if datasources are already bound to a gateway
-$dsSources = Invoke-RestMethod `
-    -Uri "https://api.powerbi.com/v1.0/myorg/groups/$workspaceId/datasets/$smId/datasources" `
-    -Headers $pbiHeaders
-$hasBoundGw = $dsSources.value | Where-Object { $_.gatewayId -and $_.gatewayId -ne "00000000-0000-0000-0000-000000000000" }
+# Bind data source credentials automatically via PBI REST API.
+# For Direct Lake models in the same workspace, the Fabric cloud gateway
+# handles the connection — we just need to bind OAuth2 creds programmatically
+# instead of asking the user to do it manually in the portal.
 
-if (-not $hasBoundGw) {
-    Write-Host "  ⚠ Data source credentials need to be configured in the Fabric portal." -ForegroundColor Yellow
+# Allow a few seconds for Fabric to auto-create the gateway binding
+Start-Sleep -Seconds 5
+
+$credentialsBound = $false
+try {
+    $gwSources = Invoke-RestMethod `
+        -Uri "https://api.powerbi.com/v1.0/myorg/groups/$workspaceId/datasets/$smId/Default.GetBoundGatewayDataSources" `
+        -Headers $pbiHeaders
+
+    foreach ($ds in $gwSources.value) {
+        if ($ds.gatewayId -and $ds.gatewayId -ne "00000000-0000-0000-0000-000000000000") {
+            $credBody = @{
+                credentialDetails = @{
+                    credentialType  = "OAuth2"
+                    credentials     = '{"credentialData":[]}'
+                    encryptedConnection = "Encrypted"
+                    encryptionAlgorithm = "None"
+                    privacyLevel    = "Organizational"
+                }
+            } | ConvertTo-Json -Depth 5
+
+            Invoke-RestMethod -Method PATCH `
+                -Uri "https://api.powerbi.com/v1.0/myorg/gateways/$($ds.gatewayId)/datasources/$($ds.id)" `
+                -Headers $pbiHeaders -Body $credBody
+            $credentialsBound = $true
+        }
+    }
+} catch {
+    Write-Host "  ⚠ Auto-bind failed: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+if ($credentialsBound) {
+    Write-Host "  ✓ Data source credentials bound automatically" -ForegroundColor Green
+    # Trigger refresh
+    try {
+        Invoke-WebRequest -Method POST `
+            -Uri "https://api.powerbi.com/v1.0/myorg/groups/$workspaceId/datasets/$smId/refreshes" `
+            -Headers $pbiHeaders -Body '{"type":"Full"}' -UseBasicParsing | Out-Null
+        Write-Host "  ✓ Refresh triggered" -ForegroundColor Green
+    } catch {
+        Write-Host "  ⚠ Could not trigger refresh: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+} else {
+    # Fallback: manual steps
+    Write-Host "  ⚠ Could not auto-bind credentials. Manual configuration required:" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  One-time manual step:" -ForegroundColor White
     Write-Host "    1. Open https://app.fabric.microsoft.com" -ForegroundColor Gray
@@ -443,17 +485,6 @@ if (-not $hasBoundGw) {
     Write-Host "    6. Click 'Refresh now' to load data" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Settings URL: https://app.fabric.microsoft.com/groups/$workspaceId/settings/datasets/$smId" -ForegroundColor Cyan
-} else {
-    # Credentials already bound — try to refresh
-    Write-Host "  ✓ Credentials already configured — triggering refresh" -ForegroundColor Green
-    try {
-        Invoke-WebRequest -Method POST `
-            -Uri "https://api.powerbi.com/v1.0/myorg/groups/$workspaceId/datasets/$smId/refreshes" `
-            -Headers $pbiHeaders -Body '{"type":"Full"}' -UseBasicParsing | Out-Null
-        Write-Host "  ✓ Refresh triggered" -ForegroundColor Green
-    } catch {
-        Write-Host "  ⚠ Could not trigger refresh: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
 }
 
 # ============================================================================

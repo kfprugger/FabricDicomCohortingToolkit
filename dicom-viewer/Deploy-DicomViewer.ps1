@@ -206,7 +206,7 @@ Write-Host "`n[3/6] Deploying infrastructure..." -ForegroundColor Yellow
 $deployment = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$scriptDir\infra\main.bicep" `
-    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation `
+    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName `
     --query "properties.outputs" `
     --output json | ConvertFrom-Json
 

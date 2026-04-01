@@ -110,8 +110,25 @@ $nbBody = @{
 } | ConvertTo-Json -Depth 5
 
 Write-Host "Creating notebook..."
-$resp = Invoke-WebRequest -Uri "https://api.fabric.microsoft.com/v1/workspaces/$WorkspaceId/items" -Headers $h -Method Post -Body $nbBody
-Write-Host "  Status: $($resp.StatusCode)"
+$nbCreated = $false
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+        $resp = Invoke-WebRequest -Uri "https://api.fabric.microsoft.com/v1/workspaces/$WorkspaceId/items" -Headers $h -Method Post -Body $nbBody
+        Write-Host "  Status: $($resp.StatusCode)"
+        $nbCreated = $true
+        break
+    } catch {
+        $errCode = $null
+        try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
+        if ($errCode -eq 409 -and $attempt -lt 5) {
+            Write-Host "  409 Conflict (previous deletion still propagating) — retrying in 10s... ($attempt/5)" -ForegroundColor Yellow
+            Start-Sleep 10
+        } else {
+            throw
+        }
+    }
+}
+if (-not $nbCreated) { throw "Failed to create notebook after 5 attempts" }
 
 if ($resp.StatusCode -eq 202) {
     $opId = ($resp.Headers["x-ms-operation-id"])[0]

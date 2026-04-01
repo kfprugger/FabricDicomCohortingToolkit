@@ -1,13 +1,21 @@
 """
 DICOMweb proxy — serves DICOM files from OneLake just-in-time via Flask.
 Runs as a container on Azure Container Apps.
+
+Index refresh: On startup (and every REFRESH_INTERVAL_MIN minutes), the proxy
+queries the Fabric ImagingMetastore table via SQL to discover studies. If the
+SQL endpoint isn't available, falls back to the static dicom_index.json file.
 """
 
 import io
 import json
 import logging
 import os
+import struct
+import threading
+import time
 import zipfile
+from collections import defaultdict
 from functools import lru_cache
 
 from flask import Flask, Response, jsonify, request
@@ -21,18 +29,133 @@ logging.basicConfig(level=logging.INFO)
 
 # Configuration
 INDEX_PATH = os.environ.get("DICOM_INDEX_PATH", "/app/dicom_index.json")
+FABRIC_SQL_SERVER = os.environ.get("FABRIC_SQL_SERVER", "")
+FABRIC_SQL_DATABASE = os.environ.get("FABRIC_SQL_DATABASE", "")
+REFRESH_INTERVAL_MIN = int(os.environ.get("INDEX_REFRESH_INTERVAL_MIN", "30"))
+
 _index: dict = {}
+_index_lock = threading.Lock()
 _datalake_client = None
+_last_refresh_time = 0
+_refresh_source = "none"  # "sql" or "file"
 
 
 def load_index():
-    global _index
+    """Load index from static file as initial seed / fallback."""
+    global _index, _refresh_source
     if os.path.exists(INDEX_PATH):
         with open(INDEX_PATH) as f:
-            _index = json.load(f)
-        logging.info(f"Loaded index: {len(_index)} studies")
+            data = json.load(f)
+        with _index_lock:
+            _index = data
+            _refresh_source = "file"
+        logging.info(f"Loaded static index: {len(_index)} studies")
     else:
-        logging.warning(f"Index not found: {INDEX_PATH}")
+        logging.warning(f"Static index not found: {INDEX_PATH}")
+
+
+def _get_sql_token() -> str:
+    """Get an Azure AD token for SQL access using the container's Managed Identity."""
+    try:
+        cred = ManagedIdentityCredential()
+    except Exception:
+        cred = DefaultAzureCredential()
+    token = cred.get_token("https://database.windows.net/.default")
+    return token.token
+
+
+def refresh_index_from_sql():
+    """Query ImagingMetastore via Fabric SQL endpoint to rebuild the index."""
+    global _index, _last_refresh_time, _refresh_source
+
+    if not FABRIC_SQL_SERVER or not FABRIC_SQL_DATABASE:
+        logging.info("SQL endpoint not configured — skipping runtime refresh")
+        return False
+
+    try:
+        import pyodbc
+
+        token = _get_sql_token()
+        token_bytes = token.encode("UTF-16-LE")
+        token_struct = struct.pack(
+            f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
+        )
+
+        conn = pyodbc.connect(
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={FABRIC_SQL_SERVER};"
+            f"DATABASE={FABRIC_SQL_DATABASE};"
+            f"Encrypt=Yes;",
+            attrs_before={1256: token_struct},
+            timeout=30,
+        )
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                m.studyInstanceUid,
+                m.seriesInstanceUid,
+                m.sopInstanceUid,
+                m.filePath,
+                COALESCE(
+                    JSON_VALUE(i.series_string, '$[0].modality.code'),
+                    'OT'
+                ) AS modality
+            FROM dbo.ImagingMetastore m
+            LEFT JOIN dbo.ImagingStudy i
+                ON m.studyInstanceUid = JSON_VALUE(i.identifier_string, '$[0].value')
+            WHERE m.filePath IS NOT NULL
+        """)
+
+        new_index = defaultdict(list)
+        row_count = 0
+        for row in cursor.fetchall():
+            new_index[row.studyInstanceUid].append({
+                "studyInstanceUid": row.studyInstanceUid,
+                "seriesInstanceUid": row.seriesInstanceUid,
+                "sopInstanceUid": row.sopInstanceUid,
+                "filePath": row.filePath,
+                "modality": row.modality,
+            })
+            row_count += 1
+
+        conn.close()
+
+        with _index_lock:
+            _index = dict(new_index)
+            _last_refresh_time = time.time()
+            _refresh_source = "sql"
+
+        logging.info(
+            f"Index refreshed from SQL: {row_count} instances across {len(new_index)} studies"
+        )
+        return True
+
+    except Exception as e:
+        logging.warning(f"SQL index refresh failed (will use existing index): {e}")
+        return False
+
+
+def _background_refresh_loop():
+    """Background thread: refresh the index from SQL periodically."""
+    while True:
+        time.sleep(REFRESH_INTERVAL_MIN * 60)
+        logging.info("Background index refresh triggered")
+        refresh_index_from_sql()
+
+
+def start_index_manager():
+    """Initialize index: load static file, then try SQL refresh, then start background loop."""
+    load_index()
+    if refresh_index_from_sql():
+        logging.info("Initial SQL refresh succeeded — live index active")
+    else:
+        logging.info("SQL refresh unavailable — using static index as fallback")
+
+    if FABRIC_SQL_SERVER and FABRIC_SQL_DATABASE:
+        t = threading.Thread(target=_background_refresh_loop, daemon=True)
+        t.start()
+        logging.info(f"Background index refresh started (every {REFRESH_INTERVAL_MIN} min)")
 
 
 def get_datalake_client() -> DataLakeServiceClient:
@@ -312,7 +435,24 @@ def retrieve_frames(study_uid, series_uid, sop_uid, frames):
 # Health check endpoint
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "studies": len(_index)})
+    return jsonify({
+        "status": "ok",
+        "studies": len(_index),
+        "indexSource": _refresh_source,
+        "sqlEndpoint": FABRIC_SQL_SERVER or "(not configured)",
+        "lastRefresh": _last_refresh_time,
+    })
+
+
+# Manual index refresh endpoint
+@app.route("/refresh-index", methods=["POST"])
+def manual_refresh():
+    success = refresh_index_from_sql()
+    return jsonify({
+        "refreshed": success,
+        "studies": len(_index),
+        "source": _refresh_source,
+    })
 
 
 def _find_instance(study_uid, series_uid, sop_uid):
@@ -324,7 +464,7 @@ def _find_instance(study_uid, series_uid, sop_uid):
     return None
 
 
-load_index()
+start_index_manager()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

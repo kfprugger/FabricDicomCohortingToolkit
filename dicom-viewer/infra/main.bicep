@@ -11,6 +11,12 @@ param swaLocation string = 'westus2'
 @description('Base name for resources')
 param baseName string = 'dicom'
 
+@description('Fabric SQL analytics endpoint server (for runtime index refresh)')
+param fabricSqlServer string = ''
+
+@description('Fabric SQL database name (Silver Lakehouse)')
+param fabricSqlDatabase string = ''
+
 @description('Static Web App SKU')
 @allowed(['Free', 'Standard'])
 param swaSku string = 'Free'
@@ -101,6 +107,14 @@ resource proxy 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'DICOM_INDEX_PATH'
               value: '/app/dicom_index.json'
+            }
+            {
+              name: 'FABRIC_SQL_SERVER'
+              value: fabricSqlServer
+            }
+            {
+              name: 'FABRIC_SQL_DATABASE'
+              value: fabricSqlDatabase
             }
           ]
         }

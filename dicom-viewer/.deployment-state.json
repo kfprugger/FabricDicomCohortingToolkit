@@ -1,6 +1,6 @@
 {
-  "resourceGroup": "rg-med-device-rti-0331-2",
-  "fabricWorkspace": "med-device-rti-hds-0331-2",
-  "fabricServer": "nkhahdl5to4ezo6p5bg76flepa-iuigi2fsvpvuhgtnxwgaapgige.datawarehouse.fabric.microsoft.com",
-  "fabricDatabase": "healthcare1_msft_silver"
+  "fabricServer": "nkhahdl5to4ezo6p5bg76flepa-eux6245jly6upgii7ou7ji4qpq.datawarehouse.fabric.microsoft.com",
+  "fabricDatabase": "healthcare1_msft_silver",
+  "resourceGroup": "rg-med-device-rti-0401-2",
+  "fabricWorkspace": "med-device-rti-hds-0401-2"
 }

@@ -188,7 +188,23 @@ if (-not (Test-Path "$proxyDir\dicom_index.json")) {
     exit 1
 }
 
-$acrNameParam = $BaseName.Replace('-', '') + 'acr'
+# Derive a unique ACR name matching the Bicep uniqueString(resourceGroup().id) pattern.
+# First check if an ACR already exists in the RG (idempotent re-runs).
+$existingAcr = az acr list --resource-group $ResourceGroup --query "[0].name" -o tsv 2>$null
+if ($existingAcr) {
+    $acrNameParam = $existingAcr
+    Write-Host "  Using existing ACR: $acrNameParam" -ForegroundColor Green
+} else {
+    # Generate a short hash from the RG name to ensure global uniqueness (mirrors Bicep uniqueString)
+    $rgHash = [System.BitConverter]::ToString(
+        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes($ResourceGroup)
+        )
+    ).Replace('-','').Substring(0,13).ToLower()
+    $acrNameParam = $BaseName.Replace('-', '') + $rgHash + 'acr'
+    # ACR names max 50 chars, alphanumeric only
+    if ($acrNameParam.Length -gt 50) { $acrNameParam = $acrNameParam.Substring(0, 50) }
+}
 # Create ACR if it doesn't exist
 $acrExists = az acr show --name $acrNameParam --resource-group $ResourceGroup --query name -o tsv 2>$null
 if (-not $acrExists) {
@@ -206,7 +222,7 @@ Write-Host "`n[3/6] Deploying infrastructure..." -ForegroundColor Yellow
 $deployment = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$scriptDir\infra\main.bicep" `
-    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName `
+    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName acrName=$acrNameParam `
     --query "properties.outputs" `
     --output json | ConvertFrom-Json
 

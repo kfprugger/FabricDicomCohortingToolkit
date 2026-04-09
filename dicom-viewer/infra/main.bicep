@@ -21,8 +21,8 @@ param fabricSqlDatabase string = ''
 @allowed(['Free', 'Standard'])
 param swaSku string = 'Free'
 
-@description('ACR name for proxy container image')
-param acrName string = '${replace(baseName, '-', '')}acr'
+@description('ACR name for proxy container image (globally unique)')
+param acrName string = '${replace(baseName, '-', '')}${uniqueString(resourceGroup().id)}acr'
 
 // Log Analytics Workspace
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {

@@ -1,6 +1,6 @@
 {
-  "fabricWorkspace": "med-rojo-0407F",
+  "resourceGroup": "rg-med-rojo-0408A",
+  "fabricWorkspace": "med-rojo-0408A",
   "fabricDatabase": "healthcare1_msft_silver",
-  "resourceGroup": "rg-med-rojo-0407F",
-  "fabricServer": "nkhahdl5to4ezo6p5bg76flepa-wrymj5eidgtuheusqiov7cvcha.datawarehouse.fabric.microsoft.com"
+  "fabricServer": "nkhahdl5to4ezo6p5bg76flepa-u7ilqzbdrt4enlkwhcensfdjny.datawarehouse.fabric.microsoft.com"
 }

@@ -12,5 +12,6 @@ __pycache__/
 *.pyc
 dicom-viewer/.deployment-state.json
 
+dicom-viewer/.deployment-*.json
 dicom-viewer/.deployment-state.json
 dicom-viewer/.deployment-state.json

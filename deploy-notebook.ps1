@@ -31,11 +31,15 @@ if (-not $ReportingLhId) {
 # Auto-discover OHIF Viewer URL if not provided
 if (-not $OhifViewerBaseUrl) {
     # Try deployment state file first
-    $stateFile = Join-Path $PSScriptRoot "dicom-viewer\.deployment-state.json"
+    $stateFile = Join-Path $PSScriptRoot "dicom-viewer\state-tracking\.deployment-state.json"
     if (Test-Path $stateFile) {
         $state = Get-Content $stateFile -Raw | ConvertFrom-Json
         if ($state.swaHostname) {
-            $OhifViewerBaseUrl = "$($state.swaHostname)/viewer?StudyInstanceUIDs="
+            $swaHost = $state.swaHostname
+            if ($swaHost -notmatch '^https?://') {
+                $swaHost = "https://$swaHost"
+            }
+            $OhifViewerBaseUrl = "$swaHost/viewer?StudyInstanceUIDs="
             Write-Host "OHIF Viewer (from state): $OhifViewerBaseUrl"
         }
     }

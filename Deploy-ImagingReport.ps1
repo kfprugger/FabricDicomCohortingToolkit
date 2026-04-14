@@ -13,7 +13,7 @@
 
 .PARAMETER OhifViewerBaseUrl
     Full OHIF viewer URL including the ?StudyInstanceUIDs= suffix.
-    Auto-discovered from .deployment-state.json if not provided.
+    Auto-discovered from state-tracking/.deployment-state.json if not provided.
 
 .PARAMETER ReportSourcePath
     Path to the FabricDicomCohortingToolkit repo root. Default: script directory.
@@ -96,6 +96,43 @@ $ws = (Invoke-FabricApi -Endpoint "/workspaces").value | Where-Object { $_.displ
 if (-not $ws) { throw "Workspace '$FabricWorkspaceName' not found" }
 $workspaceId = $ws.id
 Write-Host "  ✓ Workspace: $FabricWorkspaceName ($workspaceId)" -ForegroundColor Green
+
+# Resolve OHIF Viewer URL if not provided (used by materialization notebook to build ViewerUrl values)
+if (-not $OhifViewerBaseUrl) {
+    $stateFile = Join-Path $ReportSourcePath "dicom-viewer\state-tracking\.deployment-state.json"
+    if (Test-Path $stateFile) {
+        try {
+            $state = Get-Content $stateFile -Raw | ConvertFrom-Json
+            if ($state.swaHostname) {
+                $swaHost = $state.swaHostname
+                if ($swaHost -notmatch '^https?://') {
+                    $swaHost = "https://$swaHost"
+                }
+                $OhifViewerBaseUrl = "$swaHost/viewer?StudyInstanceUIDs="
+                Write-Host "  ✓ OHIF Viewer (state): $OhifViewerBaseUrl" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  ⚠ Could not parse SWA state file: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
+    if (-not $OhifViewerBaseUrl) {
+        try {
+            $swaHost = az staticwebapp list --query "[0].defaultHostname" -o tsv 2>$null
+            if ($swaHost) {
+                $OhifViewerBaseUrl = "https://$swaHost/viewer?StudyInstanceUIDs="
+                Write-Host "  ✓ OHIF Viewer (Azure): $OhifViewerBaseUrl" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  ⚠ Could not auto-discover SWA URL from Azure CLI" -ForegroundColor Yellow
+        }
+    }
+}
+
+if (-not $OhifViewerBaseUrl) {
+    $OhifViewerBaseUrl = "https://example.azurestaticapps.net/viewer?StudyInstanceUIDs="
+    Write-Host "  ⚠ OHIF Viewer fallback in use (placeholder URL)" -ForegroundColor Yellow
+}
 
 # Find Reporting Gold Lakehouse and its SQL endpoint
 $lakehouses = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/lakehouses").value
@@ -497,7 +534,7 @@ Write-Host "  ║  Imaging Report Deployed                                     �
 Write-Host "  ╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Green
 Write-Host "  ║  Semantic Model : ImagingReport ($smId)      ║" -ForegroundColor Gray
 Write-Host "  ║  Report         : ImagingReport ($rptId)      ║" -ForegroundColor Gray
-Write-Host "  ║  Silver SQL     : $silverServer   ║" -ForegroundColor Gray
+Write-Host "  ║  Reporting SQL  : $reportingServer   ║" -ForegroundColor Gray
 Write-Host "  ║  OHIF Viewer    : $($OhifViewerBaseUrl.Substring(0, [Math]::Min(50, $OhifViewerBaseUrl.Length)))...   ║" -ForegroundColor Gray
 Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""

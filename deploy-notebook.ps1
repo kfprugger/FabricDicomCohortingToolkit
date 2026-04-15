@@ -35,7 +35,11 @@ if (-not $OhifViewerBaseUrl) {
     if (Test-Path $stateFile) {
         $state = Get-Content $stateFile -Raw | ConvertFrom-Json
         if ($state.swaHostname) {
-            $OhifViewerBaseUrl = "$($state.swaHostname)/viewer?StudyInstanceUIDs="
+            $swaHost = $state.swaHostname
+            if ($swaHost -notmatch '^https?://') {
+                $swaHost = "https://$swaHost"
+            }
+            $OhifViewerBaseUrl = "$swaHost/viewer?StudyInstanceUIDs="
             Write-Host "OHIF Viewer (from state): $OhifViewerBaseUrl"
         }
     }

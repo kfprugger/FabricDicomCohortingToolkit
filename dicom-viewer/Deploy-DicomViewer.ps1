@@ -49,7 +49,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
-$stateFile = Join-Path $scriptDir ".deployment-state.json"
+$stateDir = Join-Path $scriptDir "state-tracking"
+if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
+$stateFile = Join-Path $stateDir ".deployment-state.json"
 
 Write-Host "`n=== DICOM Viewer Deployment (JIT from OneLake) ===" -ForegroundColor Cyan
 Write-Host "Resource Group   : $ResourceGroup"
@@ -326,7 +328,7 @@ Write-Host "`n[6/6] Deployment complete!" -ForegroundColor Yellow
 
 # Save deployment state for idempotent checks
 $currentState | ConvertTo-Json | Set-Content $stateFile
-Write-Host "  Deployment state saved to .deployment-state.json" -ForegroundColor DarkGray
+Write-Host "  Deployment state saved to state-tracking/.deployment-state.json" -ForegroundColor DarkGray
 
 Write-Host "`n=== Deployment Complete ===" -ForegroundColor Cyan
 Write-Host ""

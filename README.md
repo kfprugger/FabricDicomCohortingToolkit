@@ -155,7 +155,7 @@ This deploys the OHIF Viewer (Static Web App) + DICOMweb proxy (Container App), 
 ```
 
 The deploy script:
-1. **Auto-discovers** the OHIF viewer URL from Azure (or `.deployment-state.json`)
+1. **Auto-discovers** the OHIF viewer URL from Azure (or `state-tracking/.deployment-state.json`)
 2. **Patches** the URL into the notebook code before uploading
 3. Creates and runs the notebook in Fabric
 

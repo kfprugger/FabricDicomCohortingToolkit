@@ -13,7 +13,7 @@
 
 .PARAMETER OhifViewerBaseUrl
     Full OHIF viewer URL including the ?StudyInstanceUIDs= suffix.
-    Auto-discovered from .deployment-state.json if not provided.
+    Auto-discovered from state-tracking/.deployment-state.json if not provided.
 
 .PARAMETER ReportSourcePath
     Path to the FabricDicomCohortingToolkit repo root. Default: script directory.

@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "slicer_race_v003",
   "position": {
-    "x": 450,
-    "y": 10,
+    "x": 10,
+    "y": 400,
     "z": 3000,
-    "height": 60,
-    "width": 200,
+    "height": 130,
+    "width": 190,
     "tabOrder": 3000
   },
   "visual": {

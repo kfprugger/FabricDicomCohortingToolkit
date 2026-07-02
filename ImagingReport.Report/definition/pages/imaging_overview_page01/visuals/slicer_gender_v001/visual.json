@@ -3,10 +3,10 @@
   "name": "slicer_gender_v001",
   "position": {
     "x": 10,
-    "y": 10,
+    "y": 260,
     "z": 1000,
-    "height": 60,
-    "width": 200,
+    "height": 130,
+    "width": 190,
     "tabOrder": 1000
   },
   "visual": {

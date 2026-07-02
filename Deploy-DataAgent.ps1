@@ -34,6 +34,8 @@ param(
     [Parameter(Mandatory)]
     [string]$FabricWorkspaceName,
 
+    [string]$WorkspaceId = "",
+
     [string]$AgentName = "HDS Multi-Layer Imaging Cohort Agent",
 
     [string]$SilverLakehouseName = "healthcare1_msft_silver",
@@ -94,7 +96,10 @@ function Invoke-FabricApi {
     }
 
     # Handle Long Running Operations (202 Accepted)
-    if ($statusCode -eq 202 -and $respHeaders.'x-ms-operation-id') {
+    if ($statusCode -eq 202) {
+        if (-not $respHeaders.'x-ms-operation-id') {
+            throw "Fabric API $Method $Uri returned HTTP 202 without x-ms-operation-id; operation cannot be verified."
+        }
         $operationId = $respHeaders.'x-ms-operation-id'[0]
         $retryAfter  = if ($respHeaders.'Retry-After') { [int]$respHeaders.'Retry-After'[0] } else { 5 }
         Write-Host "  Waiting for operation $operationId ..." -ForegroundColor Yellow
@@ -103,9 +108,21 @@ function Invoke-FabricApi {
         while ($elapsed -lt $maxWait) {
             Start-Sleep -Seconds $retryAfter
             $elapsed += $retryAfter
-            $opResult = Invoke-RestMethod -Method GET `
-                -Uri "$fabricApiBase/operations/$operationId" `
-                -Headers @{ Authorization = "Bearer $Token" }
+            try {
+                $opResult = Invoke-RestMethod -Method GET `
+                    -Uri "$fabricApiBase/operations/$operationId" `
+                    -Headers @{ Authorization = "Bearer $Token" }
+            }
+            catch {
+                $errCode = $null
+                $errBody = if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+                try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
+                if (($errCode -eq 403 -and $errBody -match 'RequestDeniedByInboundPolicy|Forbidden') -or $errCode -in @(429, 500, 502, 503, 504)) {
+                    Write-Host "  Operation poll transient HTTP ${errCode}: $errBody" -ForegroundColor Yellow
+                    continue
+                }
+                throw
+            }
             if ($opResult.status -eq 'Succeeded') {
                 Write-Host "  Operation completed." -ForegroundColor Green
                 # Try to get the result from the operation
@@ -116,12 +133,12 @@ function Invoke-FabricApi {
                     return $opResultDetail
                 }
                 catch {
-                    # Some LROs don't have /result — return the Location header content
+                    # Some LROs don't have /result — return the operation status
                     return $opResult
                 }
             }
-            elseif ($opResult.status -eq 'Failed') {
-                throw "Operation $operationId failed: $($opResult | ConvertTo-Json -Depth 5)"
+            elseif ($opResult.status -in @('Failed', 'Cancelled', 'Canceled')) {
+                throw "Operation $operationId ended with status '$($opResult.status)': $($opResult | ConvertTo-Json -Depth 5)"
             }
             Write-Host "  Still running ($elapsed s) ..." -ForegroundColor Yellow
         }
@@ -137,14 +154,18 @@ Write-Host "Authenticating to Fabric API ..." -ForegroundColor Cyan
 $token = Get-FabricToken
 Write-Host "  Authenticated." -ForegroundColor Green
 
-Write-Host "Resolving workspace '$FabricWorkspaceName' ..." -ForegroundColor Cyan
-$workspacesUri = "$fabricApiBase/workspaces"
-$workspaces = Invoke-FabricApi -Method GET -Uri $workspacesUri -Token $token
-$workspace = $workspaces.value | Where-Object { $_.displayName -eq $FabricWorkspaceName } | Select-Object -First 1
-if (-not $workspace) {
-    throw "Workspace '$FabricWorkspaceName' not found. Check the name and your permissions."
+if ([string]::IsNullOrWhiteSpace($WorkspaceId)) {
+    Write-Host "Resolving workspace '$FabricWorkspaceName' ..." -ForegroundColor Cyan
+    $workspacesUri = "$fabricApiBase/workspaces"
+    $workspaces = Invoke-FabricApi -Method GET -Uri $workspacesUri -Token $token
+    $workspace = $workspaces.value | Where-Object { $_.displayName -eq $FabricWorkspaceName } | Select-Object -First 1
+    if (-not $workspace) {
+        throw "Workspace '$FabricWorkspaceName' not found. Check the name and your permissions."
+    }
+    $WorkspaceId = $workspace.id
+} else {
+    Write-Host "Using workspace '$FabricWorkspaceName' ($WorkspaceId) ..." -ForegroundColor Cyan
 }
-$WorkspaceId = $workspace.id
 Write-Host "  Workspace ID: $WorkspaceId" -ForegroundColor Green
 
 # ── Resolve lakehouse names → artifact IDs ───────────────────────────
@@ -354,12 +375,22 @@ if ($existing) {
         $existing = $null
     }
     else {
-        Write-Host "  Found existing agent $($existing.id) — updating definition ..." -ForegroundColor Yellow
-        $updateUri = "$listUri/$($existing.id)/updateDefinition"
+        $updatedAgentId = $existing.id
+        if (-not $updatedAgentId) {
+            throw "Data Agent '$AgentName' update completed but the agent ID could not be resolved."
+        }
+        Write-Host "  Found existing agent $updatedAgentId — updating definition ..." -ForegroundColor Yellow
+        $updateUri = "$listUri/$updatedAgentId/updateDefinition"
         Invoke-FabricApi -Method POST -Uri $updateUri -Token $token -Body @{ definition = $definition }
+        $updatedAgents = Invoke-FabricApi -Method GET -Uri $listUri -Token $token
+        $updatedAgent = $updatedAgents.value | Where-Object { $_.displayName -eq $AgentName } | Select-Object -First 1
+        $updatedAgentId = if ($updatedAgent) { $updatedAgent.id } else { $null }
+        if (-not $updatedAgentId) {
+            throw "Data Agent '$AgentName' update completed but the agent ID could not be resolved."
+        }
         Write-Host ""
         Write-Host "Data Agent updated successfully!" -ForegroundColor Green
-        Write-Host "  Agent ID:    $($existing.id)" -ForegroundColor White
+        Write-Host "  Agent ID:    $updatedAgentId" -ForegroundColor White
         Write-Host "  Workspace:   $FabricWorkspaceName ($WorkspaceId)" -ForegroundColor White
         Write-Host ""
         Write-Host "Next steps:" -ForegroundColor Cyan
@@ -375,7 +406,7 @@ if ($existing) {
 Write-Host "Creating Data Agent '$AgentName' ..." -ForegroundColor Cyan
 $createBody = @{
     displayName = $AgentName
-    description = "Clinical cohort builder using FHIR silver layer (patient names + clinical data) and OMOP gold layer (analytics only, no names)."
+    description = "Imaging cohort agent using FHIR Silver patient/clinical/imaging context and OMOP Gold analytics for DICOM cohort discovery, clinical criteria, and reporting workflows."
     definition  = $definition
 }
 
@@ -405,11 +436,10 @@ if (-not $agentId) {
     Write-Host "  Retrieving agent ID ..." -ForegroundColor Yellow
     $agents = Invoke-FabricApi -Method GET -Uri $listUri -Token $token
     $created = $agents.value | Where-Object { $_.displayName -eq $AgentName } | Select-Object -First 1
-    $agentId = $created.id
+    $agentId = if ($created) { $created.id } else { $null }
 }
 if (-not $agentId) {
-    Write-Host "Data Agent was created but could not retrieve the agent ID. Check the Fabric portal." -ForegroundColor Yellow
-    return
+    throw "Data Agent '$AgentName' create completed but the agent ID could not be resolved."
 }
 Write-Host ""
 Write-Host "Data Agent created successfully!" -ForegroundColor Green

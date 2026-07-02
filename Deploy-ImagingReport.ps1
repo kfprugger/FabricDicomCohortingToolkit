@@ -25,7 +25,9 @@ param(
     [Parameter(Mandatory)][string]$FabricWorkspaceName,
     [string]$ReportingLhName = "healthcare1_reporting_gold",
     [string]$OhifViewerBaseUrl = "",
-    [string]$ReportSourcePath = ""
+    [string]$ReportSourcePath = "",
+    [switch]$AllowManualCredentialFallback,
+    [switch]$RecreateExisting
 )
 
 $ErrorActionPreference = "Stop"
@@ -69,19 +71,59 @@ function Wait-LRO {
     param([string]$OperationUrl, [int]$TimeoutSec = 120)
     $start = Get-Date
     while ((New-TimeSpan -Start $start).TotalSeconds -lt $TimeoutSec) {
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 5
         try {
             $op = Invoke-FabricApi -Endpoint $OperationUrl
-            if ($op.status -eq "Succeeded") { return $true }
-            if ($op.status -eq "Failed") {
-                Write-Host "    LRO failed: $($op | ConvertTo-Json -Depth 5 -Compress)" -ForegroundColor Red
-                return $false
+        } catch {
+            $errCode = $null
+            $errBody = if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+            try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
+            if (($errCode -eq 403 -and $errBody -match 'RequestDeniedByInboundPolicy|Forbidden') -or $errCode -in @(429, 500, 502, 503, 504)) {
+                Write-Host "  LRO poll transient HTTP ${errCode}: $errBody" -ForegroundColor Yellow
+                continue
             }
-        } catch {}
+            throw
+        }
+        if ($op.status -eq "Succeeded") { return $true }
+        if ($op.status -eq "Failed") {
+            throw "LRO failed: $($op | ConvertTo-Json -Depth 5 -Compress)"
+        }
     }
-    Write-Host "    LRO timed out after ${TimeoutSec}s" -ForegroundColor Yellow
-    return $false
+    throw "LRO timed out after ${TimeoutSec}s"
 }
+
+function Remove-FabricItemIfExists {
+    param(
+        [Parameter(Mandatory)][string]$WorkspaceId,
+        [Parameter(Mandatory)][string]$ItemType,
+        [Parameter(Mandatory)][string]$DisplayName
+    )
+
+    $item = (Invoke-FabricApi -Endpoint "/workspaces/$WorkspaceId/items?type=$ItemType").value |
+        Where-Object { $_.displayName -eq $DisplayName } |
+        Select-Object -First 1
+
+    if (-not $item) { return }
+
+    Write-Host "  Removing existing $ItemType '$DisplayName' ($($item.id))..." -ForegroundColor Yellow
+    $token = Get-FabricToken
+    $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
+    $resp = Invoke-WebRequest -Method DELETE `
+        -Uri "$FabricApiBase/workspaces/$WorkspaceId/items/$($item.id)" `
+        -Headers $headers `
+        -UseBasicParsing
+
+    if ($resp.StatusCode -eq 202) {
+        $opId = $resp.Headers["x-ms-operation-id"]
+        if ($opId -is [array]) { $opId = $opId[0] }
+        if (-not $opId) { throw "$ItemType delete returned HTTP 202 without x-ms-operation-id" }
+        $null = Wait-LRO -OperationUrl "/operations/$opId" -TimeoutSec 120
+    } elseif ($resp.StatusCode -notin @(200, 202, 204)) {
+        throw "$ItemType delete returned HTTP $($resp.StatusCode)"
+    }
+    Write-Host "  ✓ Removed existing $ItemType '$DisplayName'" -ForegroundColor Green
+}
+
 
 # ============================================================================
 # DISCOVER WORKSPACE + SQL ENDPOINTS
@@ -97,9 +139,15 @@ if (-not $ws) { throw "Workspace '$FabricWorkspaceName' not found" }
 $workspaceId = $ws.id
 Write-Host "  ✓ Workspace: $FabricWorkspaceName ($workspaceId)" -ForegroundColor Green
 
+if ($RecreateExisting) {
+    Write-Host "  RecreateExisting requested — deleting report before semantic model to remove stale service-side metadata." -ForegroundColor Yellow
+    Remove-FabricItemIfExists -WorkspaceId $workspaceId -ItemType "Report" -DisplayName "ImagingReport"
+    Remove-FabricItemIfExists -WorkspaceId $workspaceId -ItemType "SemanticModel" -DisplayName "ImagingReport"
+}
+
 # Resolve OHIF Viewer URL if not provided (used by materialization notebook to build ViewerUrl values)
 if (-not $OhifViewerBaseUrl) {
-    $stateFile = Join-Path $ReportSourcePath "dicom-viewer\state-tracking\.deployment-state.json"
+    $stateFile = Join-Path $ReportSourcePath "dicom-viewer/state-tracking/.deployment-state.json"
     if (Test-Path $stateFile) {
         try {
             $state = Get-Content $stateFile -Raw | ConvertFrom-Json
@@ -129,9 +177,11 @@ if (-not $OhifViewerBaseUrl) {
     }
 }
 
-if (-not $OhifViewerBaseUrl) {
-    $OhifViewerBaseUrl = "https://example.azurestaticapps.net/viewer?StudyInstanceUIDs="
-    Write-Host "  ⚠ OHIF Viewer fallback in use (placeholder URL)" -ForegroundColor Yellow
+if ([string]::IsNullOrWhiteSpace($OhifViewerBaseUrl) -or
+    $OhifViewerBaseUrl -match '(?i)(example|placeholder)' -or
+    $OhifViewerBaseUrl -notmatch '^https?://' -or
+    $OhifViewerBaseUrl -notmatch '[?&]StudyInstanceUIDs=') {
+    throw "A real OHIF viewer URL including '?StudyInstanceUIDs=' is required. Deploy the DICOM viewer first or pass -OhifViewerBaseUrl."
 }
 
 # Find Reporting Gold Lakehouse and its SQL endpoint
@@ -154,7 +204,7 @@ Write-Host "  ✓ Reporting SQL: $reportingServer / $reportingDbName" -Foregroun
 Write-Host ""
 Write-Host "  Building Semantic Model definition..." -ForegroundColor White
 
-$smDir = Join-Path $ReportSourcePath "ImagingReport.SemanticModel\definition"
+$smDir = Join-Path $ReportSourcePath "ImagingReport.SemanticModel/definition"
 
 # Read all TMDL files and patch SQL endpoints
 $tmdlFiles = @()
@@ -202,7 +252,7 @@ $smPlatform = @{
 $smParts += @{ path = ".platform"; payload = (To-B64 $smPlatform); payloadType = "InlineBase64" }
 
 # definition.pbism
-$pbism = Get-Content (Join-Path $ReportSourcePath "ImagingReport.SemanticModel\definition.pbism") -Raw
+$pbism = Get-Content (Join-Path $ReportSourcePath "ImagingReport.SemanticModel/definition.pbism") -Raw
 $smParts += @{ path = "definition.pbism"; payload = (To-B64 $pbism); payloadType = "InlineBase64" }
 
 # All TMDL files
@@ -218,7 +268,7 @@ Write-Host "  ✓ Semantic Model: $($smParts.Count) definition parts" -Foregroun
 
 Write-Host "  Building Report definition..." -ForegroundColor White
 
-$rptDir = Join-Path $ReportSourcePath "ImagingReport.Report\definition"
+$rptDir = Join-Path $ReportSourcePath "ImagingReport.Report/definition"
 $rptParts = @()
 
 # .platform
@@ -251,6 +301,7 @@ $existingSm = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=S
     Where-Object { $_.displayName -eq $smName }
 
 if ($existingSm) {
+    if ($existingSm -is [array]) { $existingSm = $existingSm[0] }
     $smId = $existingSm.id
     Write-Host "  ✓ Existing: $smName ($smId) — updating definition" -ForegroundColor Green
 } else {
@@ -275,25 +326,19 @@ if ($existingSm) {
             # LRO — get operation ID and poll
             $opId = $resp.Headers["x-ms-operation-id"]
             if ($opId -is [array]) { $opId = $opId[0] }
+            if (-not $opId) { throw "Semantic Model creation returned HTTP 202 without x-ms-operation-id" }
             Write-Host "  Waiting for creation (LRO: $opId)..." -ForegroundColor Gray
             $null = Wait-LRO -OperationUrl "/operations/$opId" -TimeoutSec 120
             # Re-fetch to get ID
             $existingSm = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=SemanticModel").value |
                 Where-Object { $_.displayName -eq $smName }
+            if ($existingSm -is [array]) { $existingSm = $existingSm[0] }
             $smId = $existingSm.id
         }
     } catch {
-        $errCode = $null
-        try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-        if ($errCode -eq 202) {
-            Start-Sleep -Seconds 10
-            $existingSm = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=SemanticModel").value |
-                Where-Object { $_.displayName -eq $smName }
-            $smId = $existingSm.id
-        } else {
-            throw
-        }
+        throw
     }
+    if (-not $smId) { throw "Semantic Model '$smName' was not created or discovered" }
     Write-Host "  ✓ Created: $smName ($smId)" -ForegroundColor Green
 }
 
@@ -313,22 +358,20 @@ try {
     } elseif ($resp.StatusCode -eq 202) {
         $opId = $resp.Headers["x-ms-operation-id"]
         if ($opId -is [array]) { $opId = $opId[0] }
+        if (-not $opId) { throw "Semantic Model definition update returned HTTP 202 without x-ms-operation-id" }
         Write-Host "  Applying definition (LRO)..." -ForegroundColor Gray
         $null = Wait-LRO -OperationUrl "/operations/$opId" -TimeoutSec 120
         Write-Host "  ✓ Semantic Model definition applied" -ForegroundColor Green
+    } else {
+        throw "Semantic Model definition update returned HTTP $($resp.StatusCode)"
     }
 } catch {
-    $errCode = $null
-    try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-    if ($errCode -eq 202) {
-        Write-Host "  ✓ Semantic Model definition update accepted (202)" -ForegroundColor Green
-    } else {
-        Write-Host "  ✗ Failed to update Semantic Model: $($_.Exception.Message)" -ForegroundColor Red
-        try {
-            $errBody = $_.ErrorDetails.Message
-            Write-Host "    $errBody" -ForegroundColor DarkRed
-        } catch {}
-    }
+    Write-Host "  ✗ Failed to update Semantic Model: $($_.Exception.Message)" -ForegroundColor Red
+    try {
+        $errBody = $_.ErrorDetails.Message
+        if ($errBody) { Write-Host "    $errBody" -ForegroundColor DarkRed }
+    } catch {}
+    throw
 }
 
 # ============================================================================
@@ -362,6 +405,7 @@ $existingRpt = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=
     Where-Object { $_.displayName -eq $rptName }
 
 if ($existingRpt) {
+    if ($existingRpt -is [array]) { $existingRpt = $existingRpt[0] }
     $rptId = $existingRpt.id
     Write-Host "  ✓ Existing: $rptName ($rptId) — updating definition" -ForegroundColor Green
 } else {
@@ -385,24 +429,18 @@ if ($existingRpt) {
         } elseif ($resp.StatusCode -eq 202) {
             $opId = $resp.Headers["x-ms-operation-id"]
             if ($opId -is [array]) { $opId = $opId[0] }
+            if (-not $opId) { throw "Report creation returned HTTP 202 without x-ms-operation-id" }
             Write-Host "  Waiting for creation (LRO)..." -ForegroundColor Gray
             $null = Wait-LRO -OperationUrl "/operations/$opId" -TimeoutSec 120
             $existingRpt = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=Report").value |
                 Where-Object { $_.displayName -eq $rptName }
+            if ($existingRpt -is [array]) { $existingRpt = $existingRpt[0] }
             $rptId = $existingRpt.id
         }
     } catch {
-        $errCode = $null
-        try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-        if ($errCode -eq 202) {
-            Start-Sleep -Seconds 10
-            $existingRpt = (Invoke-FabricApi -Endpoint "/workspaces/$workspaceId/items?type=Report").value |
-                Where-Object { $_.displayName -eq $rptName }
-            $rptId = $existingRpt.id
-        } else {
-            throw
-        }
+        throw
     }
+    if (-not $rptId) { throw "Report '$rptName' was not created or discovered" }
     Write-Host "  ✓ Created: $rptName ($rptId)" -ForegroundColor Green
 }
 
@@ -422,22 +460,20 @@ try {
     } elseif ($resp.StatusCode -eq 202) {
         $opId = $resp.Headers["x-ms-operation-id"]
         if ($opId -is [array]) { $opId = $opId[0] }
+        if (-not $opId) { throw "Report definition update returned HTTP 202 without x-ms-operation-id" }
         Write-Host "  Applying definition (LRO)..." -ForegroundColor Gray
         $null = Wait-LRO -OperationUrl "/operations/$opId" -TimeoutSec 120
         Write-Host "  ✓ Report definition applied" -ForegroundColor Green
+    } else {
+        throw "Report definition update returned HTTP $($resp.StatusCode)"
     }
 } catch {
-    $errCode = $null
-    try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-    if ($errCode -eq 202) {
-        Write-Host "  ✓ Report definition update accepted (202)" -ForegroundColor Green
-    } else {
-        Write-Host "  ✗ Failed to update Report: $($_.Exception.Message)" -ForegroundColor Red
-        try {
-            $errBody = $_.ErrorDetails.Message
-            Write-Host "    $errBody" -ForegroundColor DarkRed
-        } catch {}
-    }
+    Write-Host "  ✗ Failed to update Report: $($_.Exception.Message)" -ForegroundColor Red
+    try {
+        $errBody = $_.ErrorDetails.Message
+        if ($errBody) { Write-Host "    $errBody" -ForegroundColor DarkRed }
+    } catch {}
+    throw
 }
 
 # ============================================================================
@@ -494,6 +530,10 @@ try {
             $credentialsBound = $true
         }
     }
+    if (-not $credentialsBound -and ($gwSources.value | Measure-Object).Count -eq 0) {
+        Write-Host "  ✓ No bound gateway datasources reported; treating same-workspace Direct Lake model as credentialless" -ForegroundColor Green
+        $credentialsBound = $true
+    }
 } catch {
     Write-Host "  ⚠ Auto-bind failed: $($_.Exception.Message)" -ForegroundColor Yellow
 }
@@ -510,8 +550,11 @@ if ($credentialsBound) {
         Write-Host "  ⚠ Could not trigger refresh: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 } else {
-    # Fallback: manual steps
-    Write-Host "  ⚠ Could not auto-bind credentials. Manual configuration required:" -ForegroundColor Yellow
+    if (-not $AllowManualCredentialFallback) {
+        throw "Could not auto-bind data source credentials. Re-run with -AllowManualCredentialFallback only for an explicitly manual credential configuration run."
+    }
+
+    Write-Host "  ⚠ Could not auto-bind credentials. Manual configuration required because -AllowManualCredentialFallback was specified:" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  One-time manual step:" -ForegroundColor White
     Write-Host "    1. Open https://app.fabric.microsoft.com" -ForegroundColor Gray
@@ -527,6 +570,9 @@ if ($credentialsBound) {
 # ============================================================================
 # SUMMARY
 # ============================================================================
+
+if (-not $smId) { throw "Semantic Model ID missing after deployment" }
+if (-not $rptId) { throw "Report ID missing after deployment" }
 
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green

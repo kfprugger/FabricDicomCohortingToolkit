@@ -18,6 +18,7 @@
 #       containing HDS lakehouses and a 'healthcare1_reporting_gold' lakehouse.
 
 from pyspark.sql import SparkSession, functions as F
+from pyspark.sql.window import Window
 from pyspark.sql.types import IntegerType, StringType
 from datetime import date
 import json
@@ -100,13 +101,18 @@ try:
         F.col("series_string"),
     )
 
-    # StudyInstanceUid from identifier_string JSON  {"value":"..."}
+    # StudyInstanceUid from identifier_string JSON. FHIR ImagingStudy often stores
+    # DICOM UIDs as urn:oid:<uid>, while ImagingMetastore stores the bare UID.
+    # Reporting uses the bare UID as the canonical key so studies join to files.
     imaging_rpt = imaging_rpt.withColumn(
-        "StudyInstanceUid",
+        "StudyInstanceUidRaw",
         F.regexp_extract(F.col("identifier_string"), r'"value"\s*:\s*"([^"]*)"', 1)
     ).withColumn(
+        "StudyInstanceUidRaw",
+        F.when(F.col("StudyInstanceUidRaw") == "", None).otherwise(F.col("StudyInstanceUidRaw"))
+    ).withColumn(
         "StudyInstanceUid",
-        F.when(F.col("StudyInstanceUid") == "", None).otherwise(F.col("StudyInstanceUid"))
+        F.regexp_replace(F.col("StudyInstanceUidRaw"), r"^urn:oid:", "")
     )
 
     # PatientUUID from subject_string — nested at identifier.value
@@ -128,6 +134,22 @@ try:
         "Modality",
         F.when(F.col("Modality") == "", None).otherwise(F.col("Modality"))
     )
+
+    # HDS can expose the same logical study twice: once from FHIR ImagingStudy
+    # (identifier urn:oid:<uid>) and once from DICOM metadata (bare uid). Keep one
+    # reporting row per canonical StudyInstanceUid, preferring rows whose source
+    # already used the bare UID because those are the rows that match DICOM files.
+    imaging_rpt = imaging_rpt.withColumn(
+        "StudyDedupeKey",
+        F.coalesce(F.col("StudyInstanceUid"), F.col("StudyId"))
+    )
+    study_window = Window.partitionBy("StudyDedupeKey").orderBy(
+        F.when(F.col("StudyInstanceUidRaw").startswith("urn:oid:"), F.lit(1)).otherwise(F.lit(0)),
+        F.col("StudyDate").desc_nulls_last(),
+        F.col("StudyId")
+    )
+    imaging_rpt = imaging_rpt.withColumn("StudyUidRank", F.row_number().over(study_window)) \
+        .filter(F.col("StudyUidRank") == 1)
 
     # ModalityName
     modality_map = {
@@ -161,7 +183,7 @@ try:
     )
 
     # Drop helper columns
-    imaging_rpt = imaging_rpt.drop("identifier_string", "subject_string", "series_string")
+    imaging_rpt = imaging_rpt.drop("identifier_string", "subject_string", "series_string", "StudyInstanceUidRaw", "StudyDedupeKey", "StudyUidRank")
 
     imaging_rpt.write.format("delta").mode("overwrite").option("overwriteSchema", "true") \
         .save(abfss(REPORTING_LH_ID, "ImagingStudyReporting"))

@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "slicer_agerange_v004",
   "position": {
-    "x": 660,
-    "y": 10,
+    "x": 10,
+    "y": 120,
     "z": 4000,
-    "height": 60,
-    "width": 200,
+    "height": 130,
+    "width": 190,
     "tabOrder": 4000
   },
   "visual": {

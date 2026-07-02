@@ -180,7 +180,7 @@ def parse_abfss(path: str):
     return ws, parts[0], parts[1] if len(parts) > 1 else ""
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=8)
 def fetch_dcm(abfss_path: str) -> bytes:
     ws, item, fpath = parse_abfss(abfss_path)
     client = get_datalake_client()
@@ -254,7 +254,7 @@ def _dcm_element_to_json(elem):
         return {"vr": vr, "Value": converted}
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=16)
 def build_full_metadata(abfss_path: str) -> dict:
     """Fetch DICOM from OneLake, parse with pydicom, return full DICOM JSON metadata."""
     dcm_bytes = fetch_dcm(abfss_path)

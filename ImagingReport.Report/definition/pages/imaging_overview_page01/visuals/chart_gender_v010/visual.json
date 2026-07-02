@@ -3,9 +3,9 @@
   "name": "chart_gender_v010",
   "position": {
     "x": 870,
-    "y": 410,
+    "y": 420,
     "z": 10000,
-    "height": 300,
+    "height": 290,
     "width": 400,
     "tabOrder": 10000
   },

@@ -21,7 +21,7 @@ import struct
 from collections import defaultdict
 
 import pyodbc
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential, DefaultAzureCredential
 
 
 FABRIC_SERVER = os.environ.get("FABRIC_SERVER", "")
@@ -29,9 +29,17 @@ FABRIC_DB = os.environ.get("FABRIC_DB", "")
 
 
 def get_access_token() -> str:
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://database.windows.net/.default")
-    return token.token
+    env_token = os.environ.get("FABRIC_SQL_ACCESS_TOKEN")
+    if env_token:
+        return env_token
+
+    scopes = ("https://database.windows.net/.default",)
+    for credential in (AzureCliCredential(), DefaultAzureCredential(exclude_cli_credential=True)):
+        try:
+            return credential.get_token(*scopes).token
+        except Exception:
+            continue
+    raise RuntimeError("Unable to acquire Fabric SQL access token from FABRIC_SQL_ACCESS_TOKEN, Azure CLI, or default credentials")
 
 
 def main():

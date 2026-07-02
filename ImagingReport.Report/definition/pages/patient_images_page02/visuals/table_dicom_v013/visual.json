@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "table_dicom_v013",
   "position": {
-    "x": 10,
-    "y": 340,
+    "x": 220,
+    "y": 420,
     "z": 3000,
-    "height": 370,
-    "width": 1260,
+    "height": 290,
+    "width": 1050,
     "tabOrder": 3000
   },
   "visual": {

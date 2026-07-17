@@ -16,19 +16,26 @@ WRITE_SNAPSHOTS = "true"
 # (prov_healthcare1_msft_imaging_clinical_foundation_with_watermark) through the
 # HDS ExecutionSummary telemetry table, keyed by pipelineRunId. ExecutionSummary
 # carries one cumulative row per (pipelineRunId, activityName) that the HDS metrics
-# poller upserts live during the run, so numSourceRecords / numTargetRecords grow
-# while the activity is in flight.
+# poller upserts live during the run.
+#
+# For this activity the inventory scan reports the target as numSourceFiles (the
+# count of .dcm files discovered to extract) and progress as numTargetRecords
+# (records written so far); numSourceRecords is left NULL. The monitor therefore
+# tracks ingested = numTargetRecords against target = numSourceFiles:
+#   - remainingToTarget = target - ingested, pctComplete = ingested / target.
+#   - A stall is ingested flat across STALL_POLLS consecutive polls while the
+#     activity is still non-terminal (and, when the target is known live, still
+#     short of it). This degrades gracefully if the poller only publishes the
+#     target at completion: it falls back to flat-ingested detection.
+#   - shortfallAtTerminal flags a terminal run whose ingested < target (dropped
+#     files) even if it never visibly stalled.
+# On any stall/shortfall the offending .dcm is attached from BusinessEvents.
 #
 # PLAN  - read-only single snapshot of the current (or given) run; no writes.
 # WATCH - poll every POLL_INTERVAL_SECONDS, append a snapshot row per poll, detect
-#         a stall (cumulative counts flat across STALL_POLLS consecutive polls while
-#         the activity is still non-terminal), and on stall attach the offending .dcm
-#         file pulled from BusinessEvents (severity=error) for the same activity.
-#
-# Alert transport is a Data Activator reflex on BronzeIngestionMonitorSnapshot:
-# trigger when stallDetected becomes true and send the Office 365 email. The notebook
-# only produces the signal; it holds no secrets and sends no mail itself.
+#         a stall / shortfall as above, and on stall attach the offending .dcm
 
+import json
 import time
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
@@ -177,16 +184,21 @@ SNAPSHOT_SCHEMA = T.StructType([
     T.StructField("executionStatus", T.StringType(), True),
     T.StructField("isTerminal", T.BooleanType(), True),
     T.StructField("pollIndex", T.IntegerType(), True),
-    T.StructField("numSourceRecords", T.LongType(), True),
-    T.StructField("numTargetRecords", T.LongType(), True),
-    T.StructField("numSourceFiles", T.LongType(), True),
-    T.StructField("numTargetFiles", T.LongType(), True),
-    T.StructField("elapsedTime", T.DoubleType(), True),
-    T.StructField("sourceDeltaSincePrev", T.LongType(), True),
+    # Inventory-scan target (numSourceFiles) vs ingested-so-far (numTargetRecords).
+    T.StructField("inventoryTargetFiles", T.LongType(), True),
+    T.StructField("ingestedRecords", T.LongType(), True),
+    T.StructField("ingestedDeltaSincePrev", T.LongType(), True),
+    T.StructField("remainingToTarget", T.LongType(), True),
+    T.StructField("pctComplete", T.DoubleType(), True),
     T.StructField("throughputRecordsPerMin", T.DoubleType(), True),
     T.StructField("consecutiveFlatPolls", T.IntegerType(), True),
     T.StructField("stallDetected", T.BooleanType(), True),
+    T.StructField("shortfallAtTerminal", T.BooleanType(), True),
     T.StructField("alertEmitted", T.BooleanType(), True),
+    # Raw telemetry retained for audit.
+    T.StructField("numSourceRecords", T.LongType(), True),
+    T.StructField("numTargetFiles", T.LongType(), True),
+    T.StructField("elapsedTime", T.DoubleType(), True),
     T.StructField("culpritFilePath", T.StringType(), True),
     T.StructField("culpritMessage", T.StringType(), True),
     T.StructField("culpritRunId", T.StringType(), True),
@@ -201,10 +213,13 @@ MONITOR_RUN_SCHEMA = T.StructType([
     T.StructField("endedAt", T.TimestampType(), True),
     T.StructField("pollsExecuted", T.IntegerType(), True),
     T.StructField("finalStatus", T.StringType(), True),
-    T.StructField("finalNumSourceRecords", T.LongType(), True),
-    T.StructField("finalNumTargetRecords", T.LongType(), True),
+    T.StructField("finalInventoryTargetFiles", T.LongType(), True),
+    T.StructField("finalIngestedRecords", T.LongType(), True),
+    T.StructField("finalRemainingToTarget", T.LongType(), True),
+    T.StructField("finalPctComplete", T.DoubleType(), True),
     T.StructField("maxThroughputRecordsPerMin", T.DoubleType(), True),
     T.StructField("stalled", T.BooleanType(), True),
+    T.StructField("shortfallAtTerminal", T.BooleanType(), True),
     T.StructField("culpritFilePath", T.StringType(), True),
     T.StructField("culpritMessage", T.StringType(), True),
     T.StructField("endReason", T.StringType(), True),
@@ -289,6 +304,10 @@ if ACTION == "PLAN":
         status = (row["executionStatus"] or "").strip()
         is_terminal = status.lower() in TERMINAL_STATUSES
         culprit = find_culprit(target_run_id, row["runId"], None) if status.lower() == "failed" else None
+        target_files = _as_long(row["numSourceFiles"])
+        ingested = _as_long(row["numTargetRecords"])
+        remaining = (target_files - ingested) if (target_files is not None and ingested is not None) else None
+        pct = (round(100.0 * ingested / target_files, 2) if target_files and ingested is not None else None)
         print({
             "action": "PLAN",
             "writesPerformed": False,
@@ -297,14 +316,16 @@ if ACTION == "PLAN":
             "activityRunId": row["runId"],
             "executionStatus": status,
             "isTerminal": is_terminal,
+            "inventoryTargetFiles": target_files,
+            "ingestedRecords": ingested,
+            "remainingToTarget": remaining,
+            "pctComplete": pct,
             "numSourceRecords": _as_long(row["numSourceRecords"]),
-            "numTargetRecords": _as_long(row["numTargetRecords"]),
-            "numSourceFiles": _as_long(row["numSourceFiles"]),
             "numTargetFiles": _as_long(row["numTargetFiles"]),
             "elapsedTime": row["elapsedTime"],
             "lastModified": str(row["msftModifiedDatetime"]),
             "mostRecentError": culprit,
-            "note": "PLAN is read-only. Run ACTION=WATCH to poll, write snapshots, and emit a stall exit value for a downstream email activity.",
+            "note": "PLAN is read-only. Run ACTION=WATCH to poll, compare ingested (numTargetRecords) vs inventory target (numSourceFiles), and emit a stall/shortfall exit value for a downstream email activity.",
         })
 else:
     if WRITE_SNAPSHOTS:
@@ -312,15 +333,16 @@ else:
         ensure_table(monitor_run_path, MONITOR_RUN_SCHEMA)
 
     deadline = started_at + timedelta(minutes=MAX_WATCH_MINUTES)
-    prev_source = None
+    prev_ingested = None
     consecutive_flat = 0
     poll_index = 0
     stall_emitted = False
     stalled_ever = False
     max_throughput = 0.0
     final_status = None
-    final_source = None
-    final_target = None
+    final_target_files = None
+    final_ingested = None
+    shortfall_at_terminal = False
     end_reason = "maxWatchElapsed"
     culprit_final = None
 
@@ -342,19 +364,27 @@ else:
 
         status = (row["executionStatus"] or "").strip()
         is_terminal = status.lower() in TERMINAL_STATUSES
-        num_source = _as_long(row["numSourceRecords"])
-        num_target = _as_long(row["numTargetRecords"])
+        target_files = _as_long(row["numSourceFiles"])   # inventory-scan target
+        ingested = _as_long(row["numTargetRecords"])      # records written so far
         elapsed = row["elapsedTime"]
 
-        source_delta = None
+        remaining = (target_files - ingested) if (target_files is not None and ingested is not None) else None
+        pct_complete = (round(100.0 * ingested / target_files, 4) if target_files and ingested is not None else None)
+        short_of_target = (remaining is not None and remaining > 0)
+
+        ingested_delta = None
         throughput = None
-        if prev_source is not None and num_source is not None:
-            source_delta = num_source - prev_source
+        if prev_ingested is not None and ingested is not None:
+            ingested_delta = ingested - prev_ingested
             interval_min = POLL_INTERVAL_SECONDS / 60.0
-            throughput = (source_delta / interval_min) if interval_min > 0 else None
+            throughput = (ingested_delta / interval_min) if interval_min > 0 else None
             if throughput is not None and throughput > max_throughput:
                 max_throughput = throughput
-            if source_delta <= 0 and not is_terminal:
+            # Flat only counts as progress-toward-target stall. If the target is
+            # known, require still-short-of-target; if unknown (poller hasn't
+            # published it yet), fall back to plain flat-ingested detection.
+            flat = ingested_delta <= 0 and not is_terminal and (short_of_target or target_files is None)
+            if flat:
                 consecutive_flat += 1
             else:
                 consecutive_flat = 0
@@ -367,7 +397,7 @@ else:
             culprit = find_culprit(target_run_id, row["runId"], started_at)
             culprit_final = culprit
             if not stall_emitted:
-                alert_emitted = True   # first stall row: the Data Activator reflex fires here
+                alert_emitted = True   # first stall row: drives the downstream alert
                 stall_emitted = True
 
         if WRITE_SNAPSHOTS:
@@ -380,16 +410,19 @@ else:
                 "executionStatus": status,
                 "isTerminal": is_terminal,
                 "pollIndex": poll_index,
-                "numSourceRecords": num_source,
-                "numTargetRecords": num_target,
-                "numSourceFiles": _as_long(row["numSourceFiles"]),
-                "numTargetFiles": _as_long(row["numTargetFiles"]),
-                "elapsedTime": elapsed,
-                "sourceDeltaSincePrev": source_delta,
+                "inventoryTargetFiles": target_files,
+                "ingestedRecords": ingested,
+                "ingestedDeltaSincePrev": ingested_delta,
+                "remainingToTarget": remaining,
+                "pctComplete": pct_complete,
                 "throughputRecordsPerMin": throughput,
                 "consecutiveFlatPolls": consecutive_flat,
                 "stallDetected": stall_now,
+                "shortfallAtTerminal": False,
                 "alertEmitted": alert_emitted,
+                "numSourceRecords": _as_long(row["numSourceRecords"]),
+                "numTargetFiles": _as_long(row["numTargetFiles"]),
+                "elapsedTime": elapsed,
                 "culpritFilePath": culprit["culpritFilePath"] if culprit else None,
                 "culpritMessage": culprit["culpritMessage"] if culprit else None,
                 "culpritRunId": culprit["culpritRunId"] if culprit else None,
@@ -399,20 +432,25 @@ else:
 
         print({
             "poll": poll_index, "at": str(poll_at), "status": status, "terminal": is_terminal,
-            "numSourceRecords": num_source, "numTargetRecords": num_target,
-            "sourceDeltaSincePrev": source_delta, "throughputRecordsPerMin": throughput,
+            "inventoryTargetFiles": target_files, "ingestedRecords": ingested,
+            "ingestedDeltaSincePrev": ingested_delta, "remainingToTarget": remaining,
+            "pctComplete": pct_complete, "throughputRecordsPerMin": throughput,
             "consecutiveFlatPolls": consecutive_flat, "stallDetected": stall_now,
             "alertEmitted": alert_emitted, "culprit": culprit,
         })
 
-        prev_source = num_source if num_source is not None else prev_source
+        prev_ingested = ingested if ingested is not None else prev_ingested
         final_status = status
-        final_source = num_source
-        final_target = num_target
+        final_target_files = target_files if target_files is not None else final_target_files
+        final_ingested = ingested if ingested is not None else final_ingested
 
         if is_terminal:
             end_reason = "activityTerminal"
-            if status.lower() == "failed" and culprit_final is None:
+            # Completeness: a terminal run that ingested fewer records than the
+            # inventory target dropped files even if it never visibly stalled.
+            if final_target_files is not None and final_ingested is not None and final_ingested < final_target_files:
+                shortfall_at_terminal = True
+            if (status.lower() == "failed" or shortfall_at_terminal) and culprit_final is None:
                 culprit_final = find_culprit(target_run_id, row["runId"], started_at)
             break
         if poll_at >= deadline:
@@ -422,6 +460,8 @@ else:
 
     ended_at = current_utc_naive()
     if WRITE_SNAPSHOTS:
+        final_remaining = (final_target_files - final_ingested) if (final_target_files is not None and final_ingested is not None) else None
+        final_pct = (round(100.0 * final_ingested / final_target_files, 4) if final_target_files and final_ingested is not None else None)
         run_summary = {
             "monitorRunId": monitor_run_id,
             "pipelineRunId": target_run_id,
@@ -430,39 +470,53 @@ else:
             "endedAt": ended_at,
             "pollsExecuted": poll_index,
             "finalStatus": final_status,
-            "finalNumSourceRecords": final_source,
-            "finalNumTargetRecords": final_target,
+            "finalInventoryTargetFiles": final_target_files,
+            "finalIngestedRecords": final_ingested,
+            "finalRemainingToTarget": final_remaining,
+            "finalPctComplete": final_pct,
             "maxThroughputRecordsPerMin": max_throughput,
             "stalled": stalled_ever,
+            "shortfallAtTerminal": shortfall_at_terminal,
             "culpritFilePath": culprit_final["culpritFilePath"] if culprit_final else None,
             "culpritMessage": culprit_final["culpritMessage"] if culprit_final else None,
             "endReason": end_reason,
         }
         spark.createDataFrame([run_summary], MONITOR_RUN_SCHEMA).write.format("delta").mode("append").save(monitor_run_path)
+    else:
+        final_remaining = (final_target_files - final_ingested) if (final_target_files is not None and final_ingested is not None) else None
+        final_pct = (round(100.0 * final_ingested / final_target_files, 4) if final_target_files and final_ingested is not None else None)
 
     print({
         "action": "WATCH", "writesPerformed": WRITE_SNAPSHOTS, "monitorRunId": monitor_run_id,
         "pipelineRunId": target_run_id, "pollsExecuted": poll_index, "finalStatus": final_status,
-        "finalNumSourceRecords": final_source, "finalNumTargetRecords": final_target,
+        "finalInventoryTargetFiles": final_target_files, "finalIngestedRecords": final_ingested,
+        "finalRemainingToTarget": final_remaining, "finalPctComplete": final_pct,
         "maxThroughputRecordsPerMin": max_throughput, "stalled": stalled_ever,
-        "endReason": end_reason, "culprit": culprit_final,
+        "shortfallAtTerminal": shortfall_at_terminal, "endReason": end_reason, "culprit": culprit_final,
     })
 
-    # Structured exit value so a downstream pipeline can branch on the stall signal.
+    # Structured exit value so a downstream pipeline can branch on the alert signal.
     # Reflex/Data Activator cannot trigger off a Lakehouse Delta table, so the
     # reliable programmatic alert path is: an If Condition on this exit value ->
     # Office 365 Outlook "Send email" activity. The snapshot/run tables remain the
     # durable audit trail and a Power BI reflex source if the signal is surfaced there.
+    # "alert" is the OR of a live stall and a terminal shortfall (dropped files).
     exit_value = json.dumps({
+        "alert": bool(stalled_ever or shortfall_at_terminal),
         "stalled": stalled_ever,
+        "shortfallAtTerminal": shortfall_at_terminal,
         "finalStatus": final_status,
+        "inventoryTargetFiles": final_target_files,
+        "ingestedRecords": final_ingested,
+        "remainingToTarget": final_remaining,
+        "pctComplete": final_pct,
         "pipelineRunId": target_run_id,
         "monitorRunId": monitor_run_id,
         "culpritFilePath": culprit_final["culpritFilePath"] if culprit_final else None,
         "culpritMessage": culprit_final["culpritMessage"] if culprit_final else None,
         "endReason": end_reason,
     })
-    try:
-        notebookutils.notebook.exit(exit_value)
-    except Exception:
-        mssparkutils.notebook.exit(exit_value)
+    # notebookutils.notebook.exit halts the notebook cleanly and returns exitValue to
+    # the pipeline; it must NOT be wrapped in try/except (catching its control-flow
+    # signal would turn a clean exit into a statement failure).
+    notebookutils.notebook.exit(exit_value)

@@ -41,13 +41,16 @@ param(
     [string]$FabricWorkspaceName,
 
     [string]$Location = "eastus",
-    [string]$SwaLocation = "westus2",
+    [string]$SwaLocation = "eastus2",
     [string]$BaseName = "hds-dicom",
+    [string]$SwaName = "",
     [switch]$SkipOhifBuild,
     [string]$FabricSqlEndpoint = "",
     [switch]$AllowManualSqlEndpointPrompt,
     [switch]$Force
 )
+
+$effectiveSwaName = if ([string]::IsNullOrWhiteSpace($SwaName)) { "$BaseName-ohif-v2" } else { $SwaName }
 
 $ErrorActionPreference = "Stop"
 $scriptDir = $PSScriptRoot
@@ -61,6 +64,7 @@ Write-Host "Resource Group   : $ResourceGroup"
 Write-Host "Fabric Workspace : $FabricWorkspaceName"
 Write-Host "Location         : $Location"
 Write-Host "SWA Location     : $SwaLocation"
+Write-Host "SWA Name         : $effectiveSwaName"
 Write-Host "Base Name        : $BaseName`n"
 
 # ── 0. Discover Fabric workspace SQL endpoint + Silver Lakehouse ──
@@ -116,15 +120,52 @@ function Assert-LastExitCode {
     }
 }
 
+function Test-OhifHttpEndpoint {
+    param(
+        [Parameter(Mandatory)][string]$ViewerUrl,
+        [Parameter(Mandatory)][string]$ExpectedProxyUrl
+    )
+    $siteUrl = $ViewerUrl.TrimEnd('/')
+    $expectedDicomWebRoot = "$($ExpectedProxyUrl.TrimEnd('/'))/dicom-web"
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        try {
+            $indexResponse = Invoke-WebRequest -Uri "$siteUrl/" -TimeoutSec 30 -UseBasicParsing
+            if ($indexResponse.StatusCode -ne 200) { throw "index returned HTTP $($indexResponse.StatusCode)" }
+            $bundleMatch = [regex]::Match([string]$indexResponse.Content, '<script[^>]+src=["'']([^"'']+\.js)["'']', 'IgnoreCase')
+            if (-not $bundleMatch.Success) { throw "index.html has no JavaScript entry bundle" }
+            $bundlePath = $bundleMatch.Groups[1].Value
+            $bundleUrl = if ($bundlePath -match '^https?://') { $bundlePath } else { "$siteUrl/$($bundlePath.TrimStart('/'))" }
+            $bundleResponse = Invoke-WebRequest -Uri $bundleUrl -TimeoutSec 30 -UseBasicParsing
+            if ($bundleResponse.StatusCode -ne 200 -or $bundleResponse.RawContentLength -lt 1024) { throw "entry bundle is unavailable or unexpectedly small" }
+
+            $configNonce = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+            $configResponse = Invoke-WebRequest -Uri "$siteUrl/app-config.js?deployment-check=$configNonce" -Headers @{ "Cache-Control" = "no-cache" } -TimeoutSec 30 -UseBasicParsing
+            if ($configResponse.StatusCode -ne 200) { throw "app-config.js returned HTTP $($configResponse.StatusCode)" }
+            $configuredRootCount = [regex]::Matches([string]$configResponse.Content, [regex]::Escape($expectedDicomWebRoot)).Count
+            if ($configuredRootCount -lt 3) {
+                throw "app-config.js does not consistently target the deployed proxy '$expectedDicomWebRoot'"
+            }
+
+            Write-Host "    OHIF HTTP health passed at $siteUrl ($($bundleResponse.RawContentLength) byte entry bundle, current proxy config)." -ForegroundColor Green
+            return $true
+        } catch {
+            Write-Host "    OHIF HTTP check failed (attempt $attempt/4): $($_.Exception.Message)" -ForegroundColor Yellow
+            if ($attempt -lt 4) { Start-Sleep -Seconds 15 }
+        }
+    }
+    return $false
+}
+
 function Test-DicomViewerDeploymentHealth {
     param(
         [Parameter(Mandatory)][string]$ResourceGroup,
         [string]$ProxyName,
         [string]$SwaName,
-        [string]$SwaHostname
+        [string]$SwaHostname,
+        [string]$ViewerUrl
     )
-    if ([string]::IsNullOrWhiteSpace($ProxyName) -or [string]::IsNullOrWhiteSpace($SwaName) -or [string]::IsNullOrWhiteSpace($SwaHostname)) {
-        Write-Host "    Previous state lacks proxy/SWA resource names; redeploy required." -ForegroundColor Yellow
+    if ([string]::IsNullOrWhiteSpace($ProxyName) -or ([string]::IsNullOrWhiteSpace($ViewerUrl) -and ([string]::IsNullOrWhiteSpace($SwaName) -or [string]::IsNullOrWhiteSpace($SwaHostname)))) {
+        Write-Host "    Previous state lacks proxy/viewer resource names; redeploy required." -ForegroundColor Yellow
         return $false
     }
 
@@ -133,6 +174,7 @@ function Test-DicomViewerDeploymentHealth {
         Write-Host "    Proxy Container App '$ProxyName' is not reachable/discoverable." -ForegroundColor Yellow
         return $false
     }
+    $expectedProxyUrl = "https://$proxyFqdn"
     $health = $null
     for ($attempt = 1; $attempt -le 6; $attempt++) {
         try {
@@ -155,22 +197,30 @@ function Test-DicomViewerDeploymentHealth {
         return $false
     }
 
-    $actualSwaHost = az staticwebapp show --name $SwaName --resource-group $ResourceGroup --query "defaultHostname" -o tsv 2>$null
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($actualSwaHost)) {
-        Write-Host "    Static Web App '$SwaName' is not reachable/discoverable." -ForegroundColor Yellow
-        return $false
-    }
+    if (-not [string]::IsNullOrWhiteSpace($ViewerUrl)) {
+        if (-not (Test-OhifHttpEndpoint -ViewerUrl $ViewerUrl -ExpectedProxyUrl $expectedProxyUrl)) { return $false }
+    } else {
+        $actualSwaHost = az staticwebapp show --name $SwaName --resource-group $ResourceGroup --query "defaultHostname" -o tsv 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($actualSwaHost)) {
+            Write-Host "    Static Web App '$SwaName' is not reachable/discoverable." -ForegroundColor Yellow
+            return $false
+        }
 
-    $expectedHost = $SwaHostname -replace '^https?://', ''
-    if ($actualSwaHost -ne $expectedHost) {
-        Write-Host "    Static Web App hostname changed from '$expectedHost' to '$actualSwaHost'." -ForegroundColor Yellow
-        return $false
-    }
+        $expectedHost = $SwaHostname -replace '^https?://', ''
+        if ($actualSwaHost -ne $expectedHost) {
+            Write-Host "    Static Web App hostname changed from '$expectedHost' to '$actualSwaHost'." -ForegroundColor Yellow
+            return $false
+        }
 
-    $swaEnv = az staticwebapp environment list --name $SwaName --resource-group $ResourceGroup --query "[?name=='default'] | [0].{status:status,hostname:hostname}" -o json 2>$null | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 0 -or -not $swaEnv -or $swaEnv.status -ne "Ready") {
-        Write-Host "    Static Web App default environment is not Ready." -ForegroundColor Yellow
-        return $false
+        $swaEnv = az staticwebapp environment list --name $SwaName --resource-group $ResourceGroup --query "[?name=='default'] | [0].{status:status,hostname:hostname}" -o json 2>$null | ConvertFrom-Json
+        if ($LASTEXITCODE -ne 0 -or -not $swaEnv -or $swaEnv.status -ne "Ready") {
+            Write-Host "    Static Web App default environment is not Ready." -ForegroundColor Yellow
+            return $false
+        }
+        if (-not (Test-OhifHttpEndpoint -ViewerUrl "https://$actualSwaHost" -ExpectedProxyUrl $expectedProxyUrl)) {
+            Write-Host "    Static Web App control plane is Ready, but the deployed site is not reachable." -ForegroundColor Yellow
+            return $false
+        }
     }
 
     $indexPath = Join-Path $scriptDir "proxy/dicom_index.json"
@@ -268,7 +318,7 @@ if ((Test-Path $stateFile) -and -not $Force) {
         $previousState.fabricDatabase -eq $silverLhName -and
         $previousState.resourceGroup -eq $ResourceGroup) {
         Write-Host "`n  ✓ Deployment state unchanged — verifying live proxy/SWA/index health." -ForegroundColor Green
-        $previousHealthy = Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $previousState.proxyName -SwaName $previousState.swaName -SwaHostname $previousState.swaHostname
+        $previousHealthy = Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $previousState.proxyName -SwaName $previousState.swaName -SwaHostname $previousState.swaHostname -ViewerUrl $previousState.viewerUrl
         if ($previousHealthy) {
             Write-Host "    Existing deployment is healthy. Use -Force to redeploy anyway." -ForegroundColor Gray
             $needsRedeploy = $false
@@ -322,6 +372,15 @@ Assert-LastExitCode "Resource group create"
 Write-Host "`n[2/6] Building proxy container image..." -ForegroundColor Yellow
 
 $proxyDir = "$scriptDir/proxy"
+$proxyOhifDir = Join-Path $proxyDir "ohif-dist"
+if (Test-Path $proxyOhifDir) { Remove-Item $proxyOhifDir -Recurse -Force }
+$existingOhifDist = Join-Path $scriptDir "ohif-build/platform/app/dist"
+if (Test-Path $existingOhifDist) {
+    Copy-Item $existingOhifDist $proxyOhifDir -Recurse -Force
+} else {
+    New-Item -ItemType Directory -Path $proxyOhifDir -Force | Out-Null
+    Set-Content -Path (Join-Path $proxyOhifDir "index.html") -Value "<!doctype html><title>OHIF build pending</title>"
+}
 if (-not (Test-Path "$proxyDir/dicom_index.json")) {
     Write-Error "dicom_index.json not found in proxy/. The index rebuild in step 0 may have failed."
     exit 1
@@ -356,19 +415,23 @@ $acrLogin = az acr show --name $acrNameParam --query loginServer -o tsv
 Assert-LastExitCode "ACR lookup"
 if ([string]::IsNullOrWhiteSpace($acrLogin)) { throw "ACR login server not found for $acrNameParam" }
 
-Write-Host "  Building image via ACR Tasks (no local Docker needed)..."
-$acrBuildOutput = az acr build --registry $acrNameParam --image "${BaseName}-proxy:latest" $proxyDir 2>&1
+$proxyImageTag = "deploy-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
+Write-Host "  Building image via ACR Tasks (no local Docker needed): ${BaseName}-proxy:$proxyImageTag..."
+$acrBuildOutput = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$proxyImageTag" $proxyDir 2>&1
 $acrBuildExit = $LASTEXITCODE
-$acrBuildOutput | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|latest:") { Write-Host "  $_" } }
+$acrBuildOutput | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
 if ($acrBuildExit -ne 0) { throw "ACR build failed with exit code $acrBuildExit" }
-Write-Host "  Image built: ${acrLogin}/${BaseName}-proxy:latest" -ForegroundColor Green
+$proxyImageDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$proxyImageTag" --query digest -o tsv 2>$null
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($proxyImageDigest)) { throw "Could not resolve immutable DICOM proxy image digest" }
+$proxyImageReference = "${acrLogin}/${BaseName}-proxy@$proxyImageDigest"
+Write-Host "  Image built: $proxyImageReference" -ForegroundColor Green
 
 # ── 3. Deploy Bicep (infra + Container App referencing the image) ──
 Write-Host "`n[3/6] Deploying infrastructure..." -ForegroundColor Yellow
 $deploymentRaw = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$scriptDir/infra/main.bicep" `
-    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName acrName=$acrNameParam `
+    --parameters baseName=$BaseName swaName=$effectiveSwaName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName acrName=$acrNameParam proxyImage=$proxyImageReference `
     --query "properties.outputs" `
     --output json
 Assert-LastExitCode "DICOM viewer infrastructure deployment"
@@ -488,8 +551,37 @@ $swaDeployOutput | ForEach-Object { Write-Host "  $_" }
 if ($swaDeployExit -ne 0) { throw "Static Web App deploy failed with exit code $swaDeployExit" }
 Write-Host "  OHIF deployed" -ForegroundColor Green
 
-if (-not (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $proxyName -SwaName $swaName -SwaHostname $swaHostname)) {
-    throw "DICOM viewer deployment did not pass live proxy/SWA/index health checks."
+$viewerUrl = "https://$swaHostname"
+if (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $proxyName -SwaName $swaName -SwaHostname $swaHostname) {
+    $currentState.viewerMode = "static-web-app"
+    $currentState.viewerUrl = $viewerUrl
+} else {
+    Write-Host "  Static Web App is not reachable; using the DICOM proxy Container App as the viewer host." -ForegroundColor Yellow
+    $viewerUrl = $proxyUrl
+    $currentState.viewerMode = "container-app"
+    $currentState.viewerUrl = $viewerUrl
+    if (-not (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $proxyName -ViewerUrl $viewerUrl)) {
+        Write-Host "  The initial proxy image did not contain a usable OHIF build; rebuilding it from the completed dist directory." -ForegroundColor Yellow
+        if (Test-Path $proxyOhifDir) { Remove-Item $proxyOhifDir -Recurse -Force }
+        Copy-Item $distDir $proxyOhifDir -Recurse -Force
+        $fallbackTag = "ohif-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
+        $fallbackBuild = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$fallbackTag" $proxyDir 2>&1
+        $fallbackExit = $LASTEXITCODE
+        $fallbackBuild | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
+        if ($fallbackExit -ne 0) { throw "Proxy-hosted OHIF image build failed with exit code $fallbackExit" }
+        $fallbackDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$fallbackTag" --query digest -o tsv 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($fallbackDigest)) { throw "Could not resolve proxy-hosted OHIF image digest" }
+        $fallbackImage = "${acrLogin}/${BaseName}-proxy@$fallbackDigest"
+        az containerapp update --name $proxyName --resource-group $ResourceGroup --image $fallbackImage --set-env-vars "OHIF_DEPLOYMENT_ID=$fallbackTag" --output none
+        Assert-LastExitCode "Proxy-hosted OHIF Container App update"
+        if (-not (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $proxyName -ViewerUrl $viewerUrl)) {
+            throw "DICOM viewer fallback did not pass live proxy/OHIF/index health checks."
+        }
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($currentState.viewerUrl)) {
+    throw "DICOM viewer deployment completed without a healthy viewer URL."
 }
 
 
@@ -505,12 +597,12 @@ Write-Host ""
 Write-Host "Fabric Workspace : $FabricWorkspaceName" -ForegroundColor Green
 Write-Host "SQL Endpoint     : $fabricServer" -ForegroundColor Green
 Write-Host "Database         : $silverLhName" -ForegroundColor Green
-Write-Host "OHIF Viewer      : https://$swaHostname" -ForegroundColor Green
+Write-Host "OHIF Viewer      : $viewerUrl" -ForegroundColor Green
 Write-Host "DICOMweb Proxy   : $proxyUrl" -ForegroundColor Green
 Write-Host ""
 Write-Host "To switch workspaces, re-run with a different -FabricWorkspaceName:" -ForegroundColor Yellow
 Write-Host "  .\Deploy-DicomViewer.ps1 -ResourceGroup $ResourceGroup -FabricWorkspaceName `"<new-workspace>`""
 Write-Host ""
 Write-Host "Open viewer for a specific study:" -ForegroundColor Yellow
-Write-Host "  https://$swaHostname/viewer?StudyInstanceUIDs=<study-uid>"
+Write-Host "  $($viewerUrl.TrimEnd('/'))/viewer?StudyInstanceUIDs=<study-uid>"
 Write-Host ""

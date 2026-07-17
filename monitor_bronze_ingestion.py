@@ -304,7 +304,7 @@ if ACTION == "PLAN":
             "elapsedTime": row["elapsedTime"],
             "lastModified": str(row["msftModifiedDatetime"]),
             "mostRecentError": culprit,
-            "note": "PLAN is read-only. Run ACTION=WATCH to poll, write snapshots, and drive the Data Activator stall alert.",
+            "note": "PLAN is read-only. Run ACTION=WATCH to poll, write snapshots, and emit a stall exit value for a downstream email activity.",
         })
 else:
     if WRITE_SNAPSHOTS:
@@ -447,3 +447,22 @@ else:
         "maxThroughputRecordsPerMin": max_throughput, "stalled": stalled_ever,
         "endReason": end_reason, "culprit": culprit_final,
     })
+
+    # Structured exit value so a downstream pipeline can branch on the stall signal.
+    # Reflex/Data Activator cannot trigger off a Lakehouse Delta table, so the
+    # reliable programmatic alert path is: an If Condition on this exit value ->
+    # Office 365 Outlook "Send email" activity. The snapshot/run tables remain the
+    # durable audit trail and a Power BI reflex source if the signal is surfaced there.
+    exit_value = json.dumps({
+        "stalled": stalled_ever,
+        "finalStatus": final_status,
+        "pipelineRunId": target_run_id,
+        "monitorRunId": monitor_run_id,
+        "culpritFilePath": culprit_final["culpritFilePath"] if culprit_final else None,
+        "culpritMessage": culprit_final["culpritMessage"] if culprit_final else None,
+        "endReason": end_reason,
+    })
+    try:
+        notebookutils.notebook.exit(exit_value)
+    except Exception:
+        mssparkutils.notebook.exit(exit_value)

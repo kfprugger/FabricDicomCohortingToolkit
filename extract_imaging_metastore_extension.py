@@ -100,6 +100,7 @@ SEED_TAGS = [
     ("00080016", "SOPClassUID", "sopClassUid", "UI", "instance", True, False, "None", True),
     ("00200013", "InstanceNumber", "instanceNumber", "IS", "instance", True, False, "None", True),
     ("00420010", "DocumentTitle", "documentTitle", "ST", "instance", True, False, "None", True),
+    ("00321060", "RequestedProcedureDescription", "requestedProcedureDescription", "LO", "procedure", False, False, "None", True),
 ]
 
 SUPPORTED_VALUE_MODES = {

@@ -8,7 +8,7 @@ model Model
 
 annotation __PBI_TimeIntelligenceEnabled = 0
 
-annotation PBI_QueryOrder = ["Health", "TimeZoneOption", "Lease", "BatchManifest", "Anomaly", "Alert", "Preflight", "CanaryResult", "MaintenanceRun", "ReconciliationRun", "Governance", "OrchestrationRun", "IngestionInventory", "IngestionSearch", "IngestionPipelineLog", "ExecutivePipelineRun", "ExecutivePipelineActivity", "ExecutiveTagMetrics", "PatchPipelineRun", "PatchPipelineActivity", "_Measures"]
+annotation PBI_QueryOrder = ["Health", "TimeZoneOption", "Lease", "BatchManifest", "Anomaly", "Alert", "Preflight", "CanaryResult", "MaintenanceRun", "ReconciliationRun", "Governance", "OrchestrationRun", "IngestionInventory", "IngestionSearch", "IngestionPipelineLog", "ExecutivePipelineRun", "ExecutivePipelineActivity", "ExecutiveTagMetrics", "PatchPipelineRun", "PatchPipelineActivity", "BronzeIngestionMonitor", "_Measures"]
 
 annotation PBI_ProTooling = ["DevMode"]
 
@@ -33,6 +33,7 @@ ref table ExecutivePipelineActivity
 ref table ExecutiveTagMetrics
 ref table PatchPipelineRun
 ref table PatchPipelineActivity
+ref table BronzeIngestionMonitor
 
 
 ref cultureInfo en-US

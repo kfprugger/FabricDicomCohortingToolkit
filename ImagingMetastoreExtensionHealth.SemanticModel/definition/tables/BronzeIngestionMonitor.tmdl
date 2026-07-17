@@ -1,0 +1,155 @@
+table BronzeIngestionMonitor
+	lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000801
+
+	column monitorRunId
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000802
+		summarizeBy: none
+		sourceColumn: monitorRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column pipelineRunId
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000803
+		summarizeBy: none
+		sourceColumn: pipelineRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column watchedActivity
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000804
+		summarizeBy: none
+		sourceColumn: watchedActivity
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000805
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column endedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000806
+		summarizeBy: none
+		sourceColumn: endedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column pollsExecuted
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000807
+		summarizeBy: none
+		sourceColumn: pollsExecuted
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalStatus
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000808
+		summarizeBy: none
+		sourceColumn: finalStatus
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalInventoryTargetFiles
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000809
+		summarizeBy: none
+		sourceColumn: finalInventoryTargetFiles
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalIngestedRecords
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080a
+		summarizeBy: none
+		sourceColumn: finalIngestedRecords
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalRemainingToTarget
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080b
+		summarizeBy: none
+		sourceColumn: finalRemainingToTarget
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalPctComplete
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080c
+		summarizeBy: none
+		sourceColumn: finalPctComplete
+
+		annotation SummarizationSetBy = Automatic
+
+	column maxThroughputRecordsPerMin
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080d
+		summarizeBy: none
+		sourceColumn: maxThroughputRecordsPerMin
+
+		annotation SummarizationSetBy = Automatic
+
+	column stalled
+		dataType: boolean
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080e
+		summarizeBy: none
+		sourceColumn: stalled
+
+		annotation SummarizationSetBy = Automatic
+
+	column shortfallAtTerminal
+		dataType: boolean
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-00000000080f
+		summarizeBy: none
+		sourceColumn: shortfallAtTerminal
+
+		annotation SummarizationSetBy = Automatic
+
+	column culpritFilePath
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000810
+		summarizeBy: none
+		sourceColumn: culpritFilePath
+
+		annotation SummarizationSetBy = Automatic
+
+	column culpritMessage
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000811
+		summarizeBy: none
+		sourceColumn: culpritMessage
+
+		annotation SummarizationSetBy = Automatic
+
+	column endReason
+		dataType: string
+		lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000812
+		summarizeBy: none
+		sourceColumn: endReason
+
+		annotation SummarizationSetBy = Automatic
+
+	partition BronzeIngestionMonitor = entity
+		mode: directLake
+		source
+			entityName: BronzeIngestionMonitorRun
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

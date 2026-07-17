@@ -96,6 +96,22 @@ table _Measures
 	measure 'Current Amber Alerts' = COALESCE(CALCULATE(COUNTROWS(Alert), Alert[severity] = "Amber", Alert[isCurrent] = TRUE()), 0)
 		formatString: #,##0
 		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11145
+	measure 'Bronze Ingestion Alert' = COALESCE(MAXX(TOPN(1, ALL(BronzeIngestionMonitor), BronzeIngestionMonitor[startedAt], DESC), IF(BronzeIngestionMonitor[stalled] || BronzeIngestionMonitor[shortfallAtTerminal], 1, 0)), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11160
+	measure 'Bronze Ingestion Alert Status' = SWITCH([Bronze Ingestion Alert], 1, "Alert", "OK")
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11161
+	measure 'Bronze Ingestion Pct Complete' = COALESCE(MAXX(TOPN(1, ALL(BronzeIngestionMonitor), BronzeIngestionMonitor[startedAt], DESC), BronzeIngestionMonitor[finalPctComplete]), 0)
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11162
+	measure 'Bronze Ingestion Remaining To Target' = COALESCE(MAXX(TOPN(1, ALL(BronzeIngestionMonitor), BronzeIngestionMonitor[startedAt], DESC), BronzeIngestionMonitor[finalRemainingToTarget]), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11163
+	measure 'Bronze Ingestion Last Culprit' = MAXX(TOPN(1, ALL(BronzeIngestionMonitor), BronzeIngestionMonitor[startedAt], DESC), BronzeIngestionMonitor[culpritFilePath])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11164
+	measure 'Historical Bronze Ingestion Alerts' = COALESCE(CALCULATE(COUNTROWS(BronzeIngestionMonitor), FILTER(BronzeIngestionMonitor, BronzeIngestionMonitor[stalled] || BronzeIngestionMonitor[shortfallAtTerminal])), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11165
 
 	measure 'Anomaly Count' = COALESCE(CALCULATE(COUNTROWS(Anomaly), Anomaly[isCurrent] = TRUE()), 0)
 		formatString: #,##0

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_phi_columns",
+  "position": {
+    "x": 430,
+    "y": 110,
+    "z": 1008,
+    "height": 80,
+    "width": 200,
+    "tabOrder": 1008
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "PHI Columns"
+                }
+              },
+              "queryRef": "_Measures.PHI Columns",
+              "nativeQueryRef": "PHI Columns"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

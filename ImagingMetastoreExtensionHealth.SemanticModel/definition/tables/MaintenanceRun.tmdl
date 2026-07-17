@@ -1,0 +1,70 @@
+table MaintenanceRun
+	lineageTag: b69770d1-ee7e-5339-9876-24d5645f9935
+
+	column maintenanceRunId
+		dataType: string
+		lineageTag: 954debd8-f2f9-5ab1-bf68-42c96139b9a8
+		summarizeBy: none
+		sourceColumn: maintenanceRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: e5dbb5ac-4639-5cb4-abf3-946b28267f52
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 67f8ee92-dd04-5043-a7a0-f7977a45d2d8
+		summarizeBy: none
+		sourceColumn: completedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: c3da5ec4-23be-59ba-94d5-ed596425fa54
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column dryRunOnly
+		dataType: boolean
+		lineageTag: 40b30289-dcf5-5442-89ff-e9aeea467c37
+		summarizeBy: none
+		sourceColumn: dryRunOnly
+
+		annotation SummarizationSetBy = Automatic
+
+	column targetRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8225f8fe-7392-57da-bbdb-9e8da6a376fc
+		summarizeBy: none
+		sourceColumn: targetRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: 101bbf3a-0892-5f2a-a190-ec8946e3f464
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	partition MaintenanceRun = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionMaintenanceRun
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

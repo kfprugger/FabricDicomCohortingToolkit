@@ -1,0 +1,94 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_preflight",
+  "position": {
+    "x": 640,
+    "y": 460,
+    "z": 2015,
+    "height": 240,
+    "width": 300,
+    "tabOrder": 2015
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Preflight"
+                    }
+                  },
+                  "Property": "createdAt"
+                }
+              },
+              "queryRef": "Preflight.createdAt",
+              "nativeQueryRef": "createdAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Preflight"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "Preflight.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Preflight"
+                    }
+                  },
+                  "Property": "severity"
+                }
+              },
+              "queryRef": "Preflight.severity",
+              "nativeQueryRef": "severity"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Preflight"
+                    }
+                  },
+                  "Property": "checkName"
+                }
+              },
+              "queryRef": "Preflight.checkName",
+              "nativeQueryRef": "checkName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Preflight"
+                    }
+                  },
+                  "Property": "message"
+                }
+              },
+              "queryRef": "Preflight.message",
+              "nativeQueryRef": "message"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,90 @@
+table Anomaly
+	lineageTag: 6df3ca71-d6ce-5c0e-b854-3c9d0f84f616
+
+	column extractRunId
+		dataType: string
+		lineageTag: 3ba20e91-62e3-5d13-990f-56682b5c4e2c
+		summarizeBy: none
+		sourceColumn: extractRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column batchId
+		dataType: string
+		lineageTag: 03eaa3b4-f5b1-596f-99ea-a38ca706f845
+		summarizeBy: none
+		sourceColumn: batchId
+
+		annotation SummarizationSetBy = Automatic
+
+	column metricName
+		dataType: string
+		lineageTag: 5a41c036-1359-5d92-897a-71d462896bef
+		summarizeBy: none
+		sourceColumn: metricName
+
+		annotation SummarizationSetBy = Automatic
+
+	column metricValue
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fe8f7c3c-efb3-5178-8f32-53e8b50498ea
+		summarizeBy: none
+		sourceColumn: metricValue
+
+		annotation SummarizationSetBy = Automatic
+
+	column baselineValue
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: d88d8015-4571-574c-a0e3-cb6846d9e84a
+		summarizeBy: none
+		sourceColumn: baselineValue
+
+		annotation SummarizationSetBy = Automatic
+
+	column severity
+		dataType: string
+		lineageTag: 3bb23b76-a0ac-50da-9d05-a5ab6dfd1e43
+		summarizeBy: none
+		sourceColumn: severity
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: 716c14ce-f959-54f9-a294-6c1c50b27ee9
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 9c753249-7c49-51d6-b8d5-1095597f1293
+		summarizeBy: none
+		sourceColumn: createdAt
+
+		annotation SummarizationSetBy = Automatic
+	column isCurrent
+		dataType: boolean
+		lineageTag: 3bb23b76-a0ac-50da-9d05-a5ab6dfd1e44
+		summarizeBy: none
+		sourceColumn: isCurrent
+
+	column resolvedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 3bb23b76-a0ac-50da-9d05-a5ab6dfd1e45
+		summarizeBy: none
+		sourceColumn: resolvedAt
+
+	partition Anomaly = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionAnomaly
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

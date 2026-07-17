@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_anomalies",
+  "position": {
+    "x": 10,
+    "y": 460,
+    "z": 2014,
+    "height": 240,
+    "width": 610,
+    "tabOrder": 2014
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "createdAt"
+                }
+              },
+              "queryRef": "Anomaly.createdAt",
+              "nativeQueryRef": "createdAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "severity"
+                }
+              },
+              "queryRef": "Anomaly.severity",
+              "nativeQueryRef": "severity"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "metricName"
+                }
+              },
+              "queryRef": "Anomaly.metricName",
+              "nativeQueryRef": "metricName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "metricValue"
+                }
+              },
+              "queryRef": "Anomaly.metricValue",
+              "nativeQueryRef": "metricValue"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "baselineValue"
+                }
+              },
+              "queryRef": "Anomaly.baselineValue",
+              "nativeQueryRef": "baselineValue"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Anomaly"
+                    }
+                  },
+                  "Property": "message"
+                }
+              },
+              "queryRef": "Anomaly.message",
+              "nativeQueryRef": "message"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

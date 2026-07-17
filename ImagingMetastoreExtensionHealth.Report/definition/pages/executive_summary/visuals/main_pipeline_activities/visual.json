@@ -1,0 +1,121 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "main_pipeline_activities",
+  "position": {
+    "x": 640,
+    "y": 205,
+    "z": 10,
+    "height": 190,
+    "width": 630,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "pipelineRunId"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.pipelineRunId",
+              "nativeQueryRef": "pipelineRunId"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "activityName"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.activityName",
+              "nativeQueryRef": "activityName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "activityType"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.activityType",
+              "nativeQueryRef": "activityType"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "activityRunStart"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.activityRunStart",
+              "nativeQueryRef": "activityRunStart"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "activityRunEnd"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.activityRunEnd",
+              "nativeQueryRef": "activityRunEnd"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineActivity"
+                    }
+                  },
+                  "Property": "errorMessage"
+                }
+              },
+              "queryRef": "ExecutivePipelineActivity.errorMessage",
+              "nativeQueryRef": "errorMessage"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

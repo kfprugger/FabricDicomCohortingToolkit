@@ -1,0 +1,60 @@
+table Preflight
+	lineageTag: 7b3942dc-347b-5acf-9402-75f489f2658d
+
+	column preflightRunId
+		dataType: string
+		lineageTag: 8203a67f-d6ce-5404-bb8b-fc51a5a2e11c
+		summarizeBy: none
+		sourceColumn: preflightRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column checkName
+		dataType: string
+		lineageTag: 936b93f5-0fb4-538b-8392-a4186866e6bd
+		summarizeBy: none
+		sourceColumn: checkName
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: b77199d3-5a33-5ba1-ba48-09c72b2f9a5a
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column severity
+		dataType: string
+		lineageTag: 07c62f15-f16f-554d-81ec-28130cbd5b58
+		summarizeBy: none
+		sourceColumn: severity
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: ff6d720a-0c48-5765-8285-f2686d148e83
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: c5750033-1d67-50f0-a4b8-b4e44098fced
+		summarizeBy: none
+		sourceColumn: createdAt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Preflight = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionPreflight
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

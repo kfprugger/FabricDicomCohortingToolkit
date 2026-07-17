@@ -1,0 +1,71 @@
+table IngestionInventory
+	lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000301
+
+	column snapshotAt
+		dataType: dateTime
+		formatString: General Date
+		summarizeBy: none
+		sourceColumn: snapshotAt
+	column bronzeRows
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: bronzeRows
+	column bronzeStudies
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: bronzeStudies
+	column bronzeSeries
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: bronzeSeries
+	column bronzeSopInstances
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: bronzeSopInstances
+	column silverRows
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: silverRows
+	column silverStudies
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: silverStudies
+	column silverSeries
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: silverSeries
+	column silverSopInstances
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: silverSopInstances
+	column extensionRows
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionRows
+	column extensionStudies
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionStudies
+	column extensionSeries
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionSeries
+	column extensionSopInstances
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionSopInstances
+	column extensionAccessions
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionAccessions
+	column latestExtensionAt
+		dataType: dateTime
+		summarizeBy: none
+		sourceColumn: latestExtensionAt
+	partition IngestionInventory = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionIngestionInventory
+			schemaName: dbo
+			expressionSource: AdminSource
+	annotation PBI_ResultType = Table

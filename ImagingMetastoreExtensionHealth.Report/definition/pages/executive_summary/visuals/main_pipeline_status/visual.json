@@ -1,0 +1,93 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "main_pipeline_status",
+  "position": {
+    "x": 10,
+    "y": 205,
+    "z": 10,
+    "height": 190,
+    "width": 610,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineRun"
+                    }
+                  },
+                  "Property": "pipelineRunId"
+                }
+              },
+              "queryRef": "ExecutivePipelineRun.pipelineRunId",
+              "nativeQueryRef": "pipelineRunId"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineRun"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "ExecutivePipelineRun.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineRun"
+                    }
+                  },
+                  "Property": "startTimeUtc"
+                }
+              },
+              "queryRef": "ExecutivePipelineRun.startTimeUtc",
+              "nativeQueryRef": "startTimeUtc"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineRun"
+                    }
+                  },
+                  "Property": "endTimeUtc"
+                }
+              },
+              "queryRef": "ExecutivePipelineRun.endTimeUtc",
+              "nativeQueryRef": "endTimeUtc"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutivePipelineRun"
+                    }
+                  },
+                  "Property": "failureReason"
+                }
+              },
+              "queryRef": "ExecutivePipelineRun.failureReason",
+              "nativeQueryRef": "failureReason"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

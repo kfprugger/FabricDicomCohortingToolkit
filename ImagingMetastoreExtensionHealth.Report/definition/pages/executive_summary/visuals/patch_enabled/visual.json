@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "patch_enabled",
+  "position": {
+    "x": 220,
+    "y": 680,
+    "z": 40,
+    "height": 75,
+    "width": 200,
+    "tabOrder": 40
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Patch Pipeline Enabled"
+                }
+              },
+              "queryRef": "_Measures.Patch Pipeline Enabled",
+              "nativeQueryRef": "Patch Pipeline Enabled"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "slicer_sopInstanceUid",
+  "position": {
+    "x": 955,
+    "y": 195,
+    "z": 20,
+    "height": 65,
+    "width": 290,
+    "tabOrder": 20
+  },
+  "visual": {
+    "visualType": "slicer",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionSearch"
+                    }
+                  },
+                  "Property": "sopInstanceUid"
+                }
+              },
+              "queryRef": "IngestionSearch.sopInstanceUid",
+              "nativeQueryRef": "sopInstanceUid"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

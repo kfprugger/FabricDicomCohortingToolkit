@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_snapshot",
+  "position": {
+    "x": 1020,
+    "y": 110,
+    "z": 1009,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1009
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Latest Snapshot At"
+                }
+              },
+              "queryRef": "_Measures.Latest Snapshot At",
+              "nativeQueryRef": "Latest Snapshot At"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

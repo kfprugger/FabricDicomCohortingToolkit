@@ -1,0 +1,78 @@
+table Lease
+	lineageTag: 0df45e49-c876-5337-b62d-b4fcf8df71f0
+
+	column pipelineName
+		dataType: string
+		lineageTag: 6058bda9-3c72-5310-8402-7c9e4e305e65
+		summarizeBy: none
+		sourceColumn: pipelineName
+
+		annotation SummarizationSetBy = Automatic
+
+	column targetTable
+		dataType: string
+		lineageTag: bea0d4ab-1317-53a2-a7dd-201db41155e5
+		summarizeBy: none
+		sourceColumn: targetTable
+
+		annotation SummarizationSetBy = Automatic
+
+	column leaseId
+		dataType: string
+		lineageTag: c9366e19-06ce-58a3-b0f0-78342128a5f9
+		summarizeBy: none
+		sourceColumn: leaseId
+
+		annotation SummarizationSetBy = Automatic
+
+	column ownerRunId
+		dataType: string
+		lineageTag: 2c2c3c1e-0ffe-5f25-8876-c1e6670ee40a
+		summarizeBy: none
+		sourceColumn: ownerRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column acquiredAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: a759774a-41ef-5dea-a6f9-c0cc503a5f49
+		summarizeBy: none
+		sourceColumn: acquiredAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column expiresAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 2f1078c4-b299-5371-bd0e-70f3fcc63e90
+		summarizeBy: none
+		sourceColumn: expiresAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column releasedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: a006969f-c966-541e-a63e-9b0a86304f57
+		summarizeBy: none
+		sourceColumn: releasedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 9b8a9fe8-71b5-5dcb-bda1-ecb87cc71859
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Lease = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionLease
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "tag_metrics",
+  "position": {
+    "x": 640,
+    "y": 415,
+    "z": 10,
+    "height": 190,
+    "width": 630,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "extractRunId"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.extractRunId",
+              "nativeQueryRef": "extractRunId"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "dicomTag"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.dicomTag",
+              "nativeQueryRef": "dicomTag"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "dicomKeyword"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.dicomKeyword",
+              "nativeQueryRef": "dicomKeyword"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "rowsWithValue"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.rowsWithValue",
+              "nativeQueryRef": "rowsWithValue"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "rowsProcessed"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.rowsProcessed",
+              "nativeQueryRef": "rowsProcessed"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ExecutiveTagMetrics"
+                    }
+                  },
+                  "Property": "coveragePercent"
+                }
+              },
+              "queryRef": "ExecutiveTagMetrics.coveragePercent",
+              "nativeQueryRef": "coveragePercent"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

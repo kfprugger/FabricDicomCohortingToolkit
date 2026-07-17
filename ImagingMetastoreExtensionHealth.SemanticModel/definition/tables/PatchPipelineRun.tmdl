@@ -1,0 +1,33 @@
+table PatchPipelineRun
+	lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000701
+	column snapshotAt
+		dataType: dateTime
+		sourceColumn: snapshotAt
+	column pipelineId
+		dataType: string
+		sourceColumn: pipelineId
+	column pipelineRunId
+		dataType: string
+		sourceColumn: pipelineRunId
+	column status
+		dataType: string
+		sourceColumn: status
+	column invokeType
+		dataType: string
+		sourceColumn: invokeType
+	column startTimeUtc
+		dataType: string
+		sourceColumn: startTimeUtc
+	column endTimeUtc
+		dataType: string
+		sourceColumn: endTimeUtc
+	column failureReason
+		dataType: string
+		sourceColumn: failureReason
+	partition PatchPipelineRun = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastorePatchPipelineRun
+			schemaName: dbo
+			expressionSource: AdminSource
+	annotation PBI_ResultType = Table

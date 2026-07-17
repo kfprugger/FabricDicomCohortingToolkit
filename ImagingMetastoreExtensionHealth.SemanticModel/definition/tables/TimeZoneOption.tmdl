@@ -1,0 +1,62 @@
+table TimeZoneOption
+	lineageTag: 33333333-4444-4555-8666-777777777777
+
+	column displayTimeZoneLabel
+		dataType: string
+		lineageTag: 7bd00001-1000-5000-9000-000000000001
+		summarizeBy: none
+		sourceColumn: displayTimeZoneLabel
+
+		annotation SummarizationSetBy = Automatic
+
+	column displayUtcOffsetHours
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7bd00001-1000-5000-9000-000000000002
+		summarizeBy: none
+		sourceColumn: displayUtcOffsetHours
+
+		annotation SummarizationSetBy = Automatic
+
+	column sortOrder
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 7bd00001-1000-5000-9000-000000000003
+		summarizeBy: none
+		sourceColumn: sortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	column isDefault
+		dataType: boolean
+		lineageTag: 7bd00001-1000-5000-9000-000000000004
+		summarizeBy: none
+		sourceColumn: isDefault
+
+		annotation SummarizationSetBy = Automatic
+
+	column updatedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7bd00001-1000-5000-9000-000000000005
+		summarizeBy: none
+		sourceColumn: updatedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column updatedBy
+		dataType: string
+		lineageTag: 7bd00001-1000-5000-9000-000000000006
+		summarizeBy: none
+		sourceColumn: updatedBy
+
+		annotation SummarizationSetBy = Automatic
+
+	partition TimeZoneOption = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionTimeZoneOption
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

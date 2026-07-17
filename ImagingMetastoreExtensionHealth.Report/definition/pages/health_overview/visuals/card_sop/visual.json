@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_sop",
+  "position": {
+    "x": 270,
+    "y": 10,
+    "z": 1001,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1001
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Extracted SOP UIDs"
+                }
+              },
+              "queryRef": "_Measures.Extracted SOP UIDs",
+              "nativeQueryRef": "Extracted SOP UIDs"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

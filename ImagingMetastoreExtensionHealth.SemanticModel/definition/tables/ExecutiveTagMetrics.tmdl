@@ -1,0 +1,33 @@
+table ExecutiveTagMetrics
+	lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000603
+	column snapshotAt
+		dataType: dateTime
+		sourceColumn: snapshotAt
+	column extractRunId
+		dataType: string
+		sourceColumn: extractRunId
+	column batchId
+		dataType: string
+		sourceColumn: batchId
+	column dicomTag
+		dataType: string
+		sourceColumn: dicomTag
+	column dicomKeyword
+		dataType: string
+		sourceColumn: dicomKeyword
+	column rowsWithValue
+		dataType: double
+		sourceColumn: rowsWithValue
+	column rowsProcessed
+		dataType: double
+		sourceColumn: rowsProcessed
+	column coveragePercent
+		dataType: double
+		sourceColumn: coveragePercent
+	partition ExecutiveTagMetrics = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastorePipelineTagMetrics
+			schemaName: dbo
+			expressionSource: AdminSource
+	annotation PBI_ResultType = Table

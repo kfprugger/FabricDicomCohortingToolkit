@@ -1,0 +1,93 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "patch_pipeline_placeholder",
+  "position": {
+    "x": 10,
+    "y": 415,
+    "z": 10,
+    "height": 190,
+    "width": 610,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PatchPipelineRun"
+                    }
+                  },
+                  "Property": "pipelineRunId"
+                }
+              },
+              "queryRef": "PatchPipelineRun.pipelineRunId",
+              "nativeQueryRef": "pipelineRunId"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PatchPipelineRun"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "PatchPipelineRun.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PatchPipelineRun"
+                    }
+                  },
+                  "Property": "startTimeUtc"
+                }
+              },
+              "queryRef": "PatchPipelineRun.startTimeUtc",
+              "nativeQueryRef": "startTimeUtc"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PatchPipelineRun"
+                    }
+                  },
+                  "Property": "endTimeUtc"
+                }
+              },
+              "queryRef": "PatchPipelineRun.endTimeUtc",
+              "nativeQueryRef": "endTimeUtc"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "PatchPipelineRun"
+                    }
+                  },
+                  "Property": "failureReason"
+                }
+              },
+              "queryRef": "PatchPipelineRun.failureReason",
+              "nativeQueryRef": "failureReason"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

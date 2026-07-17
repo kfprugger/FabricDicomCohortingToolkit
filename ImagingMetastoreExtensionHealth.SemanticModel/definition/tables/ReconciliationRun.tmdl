@@ -1,0 +1,79 @@
+table ReconciliationRun
+	lineageTag: 8e5f6d5b-5cbd-5202-b6eb-18c1f2343271
+
+	column reconcileRunId
+		dataType: string
+		lineageTag: 78236524-66ac-5b00-ae55-b0f86d042a80
+		summarizeBy: none
+		sourceColumn: reconcileRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8845d8cb-9406-5699-a7f5-c6fae6b1d08f
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 6b9c625d-dc48-505a-89aa-11750c170385
+		summarizeBy: none
+		sourceColumn: completedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 269ea98d-240f-574a-ae58-147dfbdad5ef
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column dryRunOnly
+		dataType: boolean
+		lineageTag: 3aa48405-d394-5b65-90f6-89b976c72e8e
+		summarizeBy: none
+		sourceColumn: dryRunOnly
+
+		annotation SummarizationSetBy = Automatic
+
+	column candidateRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 467fba04-eb0a-5e1f-b427-f186261869f4
+		summarizeBy: none
+		sourceColumn: candidateRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column rowsSoftDeleted
+		dataType: int64
+		formatString: #,##0
+		lineageTag: a212d71b-0f09-5875-9fdb-bd394085e002
+		summarizeBy: none
+		sourceColumn: rowsSoftDeleted
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: aabf3938-ca52-516e-8036-414038107fc8
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	partition ReconciliationRun = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionReconciliationRun
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_duration",
+  "position": {
+    "x": 10,
+    "y": 110,
+    "z": 1005,
+    "height": 90,
+    "width": 250,
+    "tabOrder": 1005
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Last Run Duration Seconds"
+                }
+              },
+              "queryRef": "_Measures.Last Run Duration Seconds",
+              "nativeQueryRef": "Last Run Duration Seconds"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

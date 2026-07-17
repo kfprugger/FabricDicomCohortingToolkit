@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_batch_rows",
+  "position": {
+    "x": 430,
+    "y": 10,
+    "z": 1002,
+    "height": 80,
+    "width": 200,
+    "tabOrder": 1002
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Latest Batch Source Rows"
+                }
+              },
+              "queryRef": "_Measures.Latest Batch Source Rows",
+              "nativeQueryRef": "Latest Batch Source Rows"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

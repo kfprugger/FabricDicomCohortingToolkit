@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "kpi_1",
+  "position": {
+    "x": 225,
+    "y": 10,
+    "z": 1,
+    "height": 75,
+    "width": 200,
+    "tabOrder": 1
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Silver Studies"
+                }
+              },
+              "queryRef": "_Measures.Silver Studies",
+              "nativeQueryRef": "Silver Studies"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_studies",
+  "position": {
+    "x": 770,
+    "y": 10,
+    "z": 1003,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1003
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Extracted Study UIDs"
+                }
+              },
+              "queryRef": "_Measures.Extracted Study UIDs",
+              "nativeQueryRef": "Extracted Study UIDs"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

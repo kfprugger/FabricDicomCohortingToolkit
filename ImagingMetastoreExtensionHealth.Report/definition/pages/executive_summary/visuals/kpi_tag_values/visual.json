@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "kpi_tag_values",
+  "position": {
+    "x": 850,
+    "y": 585,
+    "z": 30,
+    "height": 75,
+    "width": 200,
+    "tabOrder": 30
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Total Tag Values Populated"
+                }
+              },
+              "queryRef": "_Measures.Total Tag Values Populated",
+              "nativeQueryRef": "Total Tag Values Populated"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

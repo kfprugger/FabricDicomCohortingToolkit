@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_source_rows",
+  "position": {
+    "x": 270,
+    "y": 110,
+    "z": 1006,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1006
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Last Run Source Rows"
+                }
+              },
+              "queryRef": "_Measures.Last Run Source Rows",
+              "nativeQueryRef": "Last Run Source Rows"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

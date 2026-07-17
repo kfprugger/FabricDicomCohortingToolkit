@@ -1,0 +1,76 @@
+table Governance
+	lineageTag: e2d72ebd-6560-55a0-9fad-0caac7792ce9
+
+	column targetTable
+		dataType: string
+		lineageTag: fe2e2a5a-7946-56b8-8fd3-4b5dcad168bf
+		summarizeBy: none
+		sourceColumn: targetTable
+
+		annotation SummarizationSetBy = Automatic
+
+	column columnName
+		dataType: string
+		lineageTag: 37024a9d-e87b-5bbf-8337-09c3d0085f25
+		summarizeBy: none
+		sourceColumn: columnName
+
+		annotation SummarizationSetBy = Automatic
+
+	column dicomTag
+		dataType: string
+		lineageTag: 36366c72-24ae-5223-a661-b7a57a874152
+		summarizeBy: none
+		sourceColumn: dicomTag
+
+		annotation SummarizationSetBy = Automatic
+
+	column dicomKeyword
+		dataType: string
+		lineageTag: 3c909bbb-d069-5a0c-9499-f561ca0aeaaa
+		summarizeBy: none
+		sourceColumn: dicomKeyword
+
+		annotation SummarizationSetBy = Automatic
+
+	column isPhi
+		dataType: boolean
+		lineageTag: 317264a2-7d85-534d-8c7c-55c1e3ee727e
+		summarizeBy: none
+		sourceColumn: isPhi
+
+		annotation SummarizationSetBy = Automatic
+
+	column phiCategory
+		dataType: string
+		lineageTag: 22024e1e-599e-5080-9dfd-329134048b07
+		summarizeBy: none
+		sourceColumn: phiCategory
+
+		annotation SummarizationSetBy = Automatic
+
+	column recommendedSensitivityLabel
+		dataType: string
+		lineageTag: fa6897dd-9b17-519a-86c5-1a659876640c
+		summarizeBy: none
+		sourceColumn: recommendedSensitivityLabel
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: d3c086a8-a3cd-556b-a549-f60cbce1b832
+		summarizeBy: none
+		sourceColumn: createdAt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Governance = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionGovernance
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

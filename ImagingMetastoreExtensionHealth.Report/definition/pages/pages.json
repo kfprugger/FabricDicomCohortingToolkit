@@ -1,0 +1,5 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
+  "pageOrder": ["executive_summary", "health_overview", "operations_resilience", "ingestion_analytics"],
+  "activePageName": "executive_summary"
+}

@@ -1,0 +1,213 @@
+table _Measures
+	lineageTag: 22222222-3333-4444-8555-666666666666
+
+	measure 'Selected UTC Offset Hours' = SELECTEDVALUE(TimeZoneOption[displayUtcOffsetHours], MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[displayUtcOffsetHours]))
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11110
+
+	measure 'Display Time Zone' = SELECTEDVALUE(TimeZoneOption[displayTimeZoneLabel], MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[displayTimeZoneLabel]))
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110f
+
+	measure 'Latest Snapshot At' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[snapshotAt]) + DIVIDE([Selected UTC Offset Hours], 24)
+		formatString: General Date
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11101
+
+	measure 'Snapshot At' = MAX(Health[snapshotAt]) + DIVIDE([Selected UTC Offset Hours], 24)
+		formatString: General Date
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11111
+
+	measure 'Health Status' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[healthStatus])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11102
+
+	measure 'Health Status Rank' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[healthStatusRank])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11103
+
+	measure 'Health Highlight Color' = SWITCH([Health Status Rank], 3, "#D13438", 2, "#FFB900", "#107C10")
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11104
+
+	measure 'Status Message' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[statusMessage])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11105
+
+	measure 'Extracted SOP UIDs' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[distinctSopInstanceUids])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11106
+
+	measure 'Extracted Series UIDs' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[distinctSeriesInstanceUids])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11107
+
+	measure 'Extracted Study UIDs' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[distinctStudyInstanceUids])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11108
+
+	measure 'Extension Rows' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[totalExtensionRows])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11109
+
+	measure 'Last Run Duration Seconds' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[durationSeconds])
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110a
+
+	measure 'Last Run Source Rows' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[sourceRowsScanned])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110b
+
+	measure 'Last Run Parse Failures' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[metadataRowsParseFailed])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110c
+
+	measure 'Last Run Missing ImagingStudy' = MAXX(TOPN(1, ALL(Health), Health[snapshotAt], DESC), Health[sourceRowsMissingImagingStudy])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110d
+
+	measure 'Active Leases' = COALESCE(CALCULATE(COUNTROWS(Lease), Lease[status] = "Active"), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11120
+
+	measure 'Latest Batch Status' = MAXX(TOPN(1, ALL(BatchManifest), BatchManifest[updatedAt], DESC), BatchManifest[status])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11121
+
+	measure 'Latest Batch Source Rows' = MAXX(TOPN(1, ALL(BatchManifest), BatchManifest[updatedAt], DESC), BatchManifest[sourceRowsExpected])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11122
+
+	measure 'Red Alerts' = CALCULATE(COUNTROWS(Alert), Alert[severity] = "Red", Alert[isCurrent] = TRUE())
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11123
+
+	measure 'Amber Alerts' = CALCULATE(COUNTROWS(Alert), Alert[severity] = "Amber", Alert[isCurrent] = TRUE())
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11124
+	measure 'Latest Extraction Start' = MAXX(TOPN(1, ALL(IngestionPipelineLog), IngestionPipelineLog[startedAt], DESC), IngestionPipelineLog[startedAt])
+		formatString: General Date
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11140
+	measure 'Latest Extraction End' = MAXX(TOPN(1, ALL(IngestionPipelineLog), IngestionPipelineLog[completedAt], DESC), IngestionPipelineLog[completedAt])
+		formatString: General Date
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11141
+	measure 'Latest Extraction Status' = MAXX(TOPN(1, ALL(IngestionPipelineLog), IngestionPipelineLog[completedAt], DESC), IngestionPipelineLog[status])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11142
+	measure 'Historical Failed Runs' = CALCULATE(COUNTROWS(IngestionPipelineLog), IngestionPipelineLog[status] = "Failed")
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11143
+	measure 'Current Red Alerts' = COALESCE(CALCULATE(COUNTROWS(Alert), Alert[severity] = "Red", Alert[isCurrent] = TRUE()), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11144
+	measure 'Current Amber Alerts' = COALESCE(CALCULATE(COUNTROWS(Alert), Alert[severity] = "Amber", Alert[isCurrent] = TRUE()), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11145
+
+	measure 'Anomaly Count' = COALESCE(CALCULATE(COUNTROWS(Anomaly), Anomaly[isCurrent] = TRUE()), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11125
+	measure 'Historical Anomaly Count' = COALESCE(COUNTROWS(Anomaly), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11146
+
+	measure 'Preflight Failures' = COALESCE(CALCULATE(COUNTROWS(Preflight), Preflight[status] = "Failed"), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11126
+
+	measure 'Canary Failures' = COALESCE(CALCULATE(COUNTROWS(CanaryResult), CanaryResult[status] = "Failed"), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11127
+
+	measure 'PHI Columns' = CALCULATE(COUNTROWS(Governance), Governance[isPhi] = TRUE())
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11128
+
+	measure 'Latest Maintenance Status' = MAXX(TOPN(1, ALL(MaintenanceRun), MaintenanceRun[startedAt], DESC), MaintenanceRun[status])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11129
+
+	measure 'Latest Reconciliation Status' = MAXX(TOPN(1, ALL(ReconciliationRun), ReconciliationRun[startedAt], DESC), ReconciliationRun[status])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1112a
+
+	measure 'Latest Orchestration Status' = MAXX(TOPN(1, ALL(OrchestrationRun), OrchestrationRun[startedAt], DESC), OrchestrationRun[status])
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1112b
+	measure 'Bronze Studies' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[bronzeStudies])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11130
+	measure 'Bronze Series' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[bronzeSeries])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11131
+	measure 'Bronze SOP Instances' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[bronzeSopInstances])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68-4a66-84c7-f5e718d11132
+	measure 'Silver Studies' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverStudies])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11133
+	measure 'Silver Series' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverSeries])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11134
+	measure 'Silver SOP Instances' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverSopInstances])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11135
+	measure 'Materialized Extension Studies' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionStudies])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11136
+	measure 'Materialized Extension Series' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionSeries])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11137
+	measure 'Materialized Extension SOP Instances' = MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionSopInstances])
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11138
+	measure 'Main Pipeline Status' = COALESCE(MAXX(TOPN(1, ALL(ExecutivePipelineRun), ExecutivePipelineRun[snapshotAt], DESC), ExecutivePipelineRun[status]), "No run captured")
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11150
+	measure 'Patch Pipeline Status' = COALESCE(MAXX(TOPN(1, ALL(PatchPipelineRun), PatchPipelineRun[snapshotAt], DESC), PatchPipelineRun[status]), "Not yet run")
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11151
+	measure 'Main Pipeline Failed Activities' = COALESCE(CALCULATE(COUNTROWS(ExecutivePipelineActivity), ExecutivePipelineActivity[status] = "Failed"), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11152
+	measure 'Patch Pipeline Failed Activities' = COALESCE(CALCULATE(COUNTROWS(PatchPipelineActivity), PatchPipelineActivity[status] = "Failed"), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11153
+	measure 'Total Tag Values Populated' = COALESCE(SUM(ExecutiveTagMetrics[rowsWithValue]), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11154
+	measure 'Average Tag Coverage Percent' = COALESCE(AVERAGE(ExecutiveTagMetrics[coveragePercent]), 0)
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11155
+	measure 'Latest Tag Values Populated' = COALESCE(SUMX(TOPN(100, ALL(ExecutiveTagMetrics), ExecutiveTagMetrics[snapshotAt], DESC), ExecutiveTagMetrics[rowsWithValue]), 0)
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11156
+	measure 'Latest Average Tag Coverage Percent' = COALESCE(AVERAGEX(TOPN(100, ALL(ExecutiveTagMetrics), ExecutiveTagMetrics[snapshotAt], DESC), ExecutiveTagMetrics[coveragePercent]), 0)
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11157
+	measure 'Extension SOP Coverage Percent' = DIVIDE(MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionSopInstances]), MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverSopInstances]), 0) * 100
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11158
+	measure 'Extension Series Coverage Percent' = DIVIDE(MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionSeries]), MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverSeries]), 0) * 100
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d11159
+	measure 'Extension Study Coverage Percent' = DIVIDE(MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[extensionStudies]), MAXX(TOPN(1, ALL(IngestionInventory), IngestionInventory[snapshotAt], DESC), IngestionInventory[silverStudies]), 0) * 100
+		formatString: #,##0.0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115a
+	measure 'Main Pipeline Enabled' = "Enabled"
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115b
+	measure 'Patch Pipeline Enabled' = "Disabled - telemetry only"
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115c
+	measure 'Overall Pipeline Health' = SWITCH(TRUE(), [Health Status] = "Red" || [Main Pipeline Status] = "Failed" || [Current Red Alerts] > 0, "Red", [Health Status] = "Amber" || [Main Pipeline Status] = "InProgress" || [Current Amber Alerts] > 0, "Amber", "Green")
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115d
+	measure 'Low Tag Coverage Count' = COUNTROWS(FILTER(TOPN(100, ALL(ExecutiveTagMetrics), ExecutiveTagMetrics[snapshotAt], DESC), ExecutiveTagMetrics[coveragePercent] < 95))
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115e
+	measure 'Critical Tag Coverage Count' = COUNTROWS(FILTER(TOPN(100, ALL(ExecutiveTagMetrics), ExecutiveTagMetrics[snapshotAt], DESC), ExecutiveTagMetrics[coveragePercent] < 80))
+		formatString: #,##0
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1115f
+	column _MeasuresKey
+		dataType: string
+		lineageTag: 0fbc44f7-b68a-4a66-84c7-f5e718d1110e
+		summarizeBy: none
+		sourceColumn: snapshotId
+		isHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	partition _Measures = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionHealth
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

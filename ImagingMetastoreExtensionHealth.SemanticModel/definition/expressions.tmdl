@@ -1,0 +1,9 @@
+expression AdminSource =
+		let
+		    database = Sql.Database("placeholder-server.datawarehouse.fabric.microsoft.com", "healthcare1_msft_admin")
+		in
+		    database
+	lineageTag: 89a9c615-42d9-4f1e-8328-761753062e11
+
+	annotation PBI_NavigationStepName = Navigation
+

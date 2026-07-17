@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_message",
+  "position": {
+    "x": 10,
+    "y": 210,
+    "z": 1010,
+    "height": 90,
+    "width": 1000,
+    "tabOrder": 1010
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Status Message"
+                }
+              },
+              "queryRef": "_Measures.Status Message",
+              "nativeQueryRef": "Status Message"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_health_history",
+  "position": {
+    "x": 10,
+    "y": 320,
+    "z": 2000,
+    "height": 390,
+    "width": 1250,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Snapshot At"
+                }
+              },
+              "queryRef": "_Measures.Snapshot At",
+              "nativeQueryRef": "Snapshot At"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "Health.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "healthStatus"
+                }
+              },
+              "queryRef": "Health.healthStatus",
+              "nativeQueryRef": "healthStatus"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "statusMessage"
+                }
+              },
+              "queryRef": "Health.statusMessage",
+              "nativeQueryRef": "statusMessage"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "totalExtensionRows"
+                }
+              },
+              "queryRef": "Health.totalExtensionRows",
+              "nativeQueryRef": "totalExtensionRows"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "distinctSopInstanceUids"
+                }
+              },
+              "queryRef": "Health.distinctSopInstanceUids",
+              "nativeQueryRef": "distinctSopInstanceUids"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "distinctSeriesInstanceUids"
+                }
+              },
+              "queryRef": "Health.distinctSeriesInstanceUids",
+              "nativeQueryRef": "distinctSeriesInstanceUids"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "distinctStudyInstanceUids"
+                }
+              },
+              "queryRef": "Health.distinctStudyInstanceUids",
+              "nativeQueryRef": "distinctStudyInstanceUids"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "sourceRowsScanned"
+                }
+              },
+              "queryRef": "Health.sourceRowsScanned",
+              "nativeQueryRef": "sourceRowsScanned"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "sourceRowsActive"
+                }
+              },
+              "queryRef": "Health.sourceRowsActive",
+              "nativeQueryRef": "sourceRowsActive"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "sourceRowsDeduplicated"
+                }
+              },
+              "queryRef": "Health.sourceRowsDeduplicated",
+              "nativeQueryRef": "sourceRowsDeduplicated"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "metadataRowsParseFailed"
+                }
+              },
+              "queryRef": "Health.metadataRowsParseFailed",
+              "nativeQueryRef": "metadataRowsParseFailed"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "sourceRowsMissingImagingStudy"
+                }
+              },
+              "queryRef": "Health.sourceRowsMissingImagingStudy",
+              "nativeQueryRef": "sourceRowsMissingImagingStudy"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "extensionRowsInserted"
+                }
+              },
+              "queryRef": "Health.extensionRowsInserted",
+              "nativeQueryRef": "extensionRowsInserted"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Health"
+                    }
+                  },
+                  "Property": "extensionRowsUpdated"
+                }
+              },
+              "queryRef": "Health.extensionRowsUpdated",
+              "nativeQueryRef": "extensionRowsUpdated"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

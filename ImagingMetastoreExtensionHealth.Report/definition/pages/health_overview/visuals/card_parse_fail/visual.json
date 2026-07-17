@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_parse_fail",
+  "position": {
+    "x": 520,
+    "y": 110,
+    "z": 1007,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1007
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Last Run Parse Failures"
+                }
+              },
+              "queryRef": "_Measures.Last Run Parse Failures",
+              "nativeQueryRef": "Last Run Parse Failures"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

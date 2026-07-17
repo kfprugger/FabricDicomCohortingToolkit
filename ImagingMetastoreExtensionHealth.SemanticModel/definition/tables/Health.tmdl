@@ -1,0 +1,403 @@
+table Health
+	lineageTag: 11111111-2222-4333-8444-555555555555
+
+	column snapshotId
+		dataType: string
+		lineageTag: 59ddde16-4315-5c4f-a06f-4f01b78f5971
+		summarizeBy: none
+		sourceColumn: snapshotId
+
+		annotation SummarizationSetBy = Automatic
+
+	column snapshotAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 6f622a26-0ddd-57d1-aab2-e9f5fdfb91b1
+		summarizeBy: none
+		sourceColumn: snapshotAt
+		isHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column snapshotAtDisplay
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7bc00001-1000-5000-9000-000000000001
+		summarizeBy: none
+		sourceColumn: snapshotAtDisplay
+
+		annotation SummarizationSetBy = Automatic
+
+	column displayTimeZoneLabel
+		dataType: string
+		lineageTag: 7bc00001-1000-5000-9000-000000000002
+		summarizeBy: none
+		sourceColumn: displayTimeZoneLabel
+
+		annotation SummarizationSetBy = Automatic
+
+	column displayUtcOffsetHours
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7bc00001-1000-5000-9000-000000000003
+		summarizeBy: none
+		sourceColumn: displayUtcOffsetHours
+
+		annotation SummarizationSetBy = Automatic
+
+
+	column extractRunId
+		dataType: string
+		lineageTag: 596c505c-c233-5d69-8e29-208f60331c9d
+		summarizeBy: none
+		sourceColumn: extractRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column batchId
+		dataType: string
+		lineageTag: 0dd1b9c0-c67b-510a-ad31-ce0be011280c
+		summarizeBy: none
+		sourceColumn: batchId
+
+		annotation SummarizationSetBy = Automatic
+
+	column pipelineName
+		dataType: string
+		lineageTag: 64ff7cd6-9271-56d0-8009-822f9104cef3
+		summarizeBy: none
+		sourceColumn: pipelineName
+
+		annotation SummarizationSetBy = Automatic
+
+	column targetTable
+		dataType: string
+		lineageTag: cbbcc158-d66f-54ba-9115-137242cacc20
+		summarizeBy: none
+		sourceColumn: targetTable
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 21a5de1c-23f5-5c8f-b4d9-26a2ef7cebe1
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column healthStatus
+		dataType: string
+		lineageTag: 84a63aac-c16f-5c28-8b01-0f67c90ea2ae
+		summarizeBy: none
+		sourceColumn: healthStatus
+
+		annotation SummarizationSetBy = Automatic
+
+	column healthStatusRank
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 2a022181-8876-5db4-b5f1-12691c81eef5
+		summarizeBy: none
+		sourceColumn: healthStatusRank
+
+		annotation SummarizationSetBy = Automatic
+
+	column statusMessage
+		dataType: string
+		lineageTag: be94ac62-8e93-5b84-ae08-2065cec2f038
+		summarizeBy: none
+		sourceColumn: statusMessage
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 6d4210a9-39d5-5699-a58c-20e4f5b62c41
+		summarizeBy: none
+		sourceColumn: startedAt
+		isHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 53c910ce-8401-59d6-a16d-6d237740fbdd
+		summarizeBy: none
+		sourceColumn: completedAt
+		isHidden
+		annotation SummarizationSetBy = Automatic
+
+	column startedAtDisplay
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7bc00001-1000-5000-9000-000000000004
+		summarizeBy: none
+		sourceColumn: startedAtDisplay
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAtDisplay
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7bc00001-1000-5000-9000-000000000005
+		summarizeBy: none
+		sourceColumn: completedAtDisplay
+
+		annotation SummarizationSetBy = Automatic
+
+
+	column durationSeconds
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 57a90389-e2ff-5d8f-bb1a-890dbfa7133e
+		summarizeBy: none
+		sourceColumn: durationSeconds
+
+		annotation SummarizationSetBy = Automatic
+
+	column totalExtensionRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 34ccb11a-4eff-51dd-91ea-083202c23f9e
+		summarizeBy: none
+		sourceColumn: totalExtensionRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column distinctStudyInstanceUids
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 84fe94eb-aa42-554c-acd3-a89ab5b0c0e1
+		summarizeBy: none
+		sourceColumn: distinctStudyInstanceUids
+
+		annotation SummarizationSetBy = Automatic
+
+	column distinctSeriesInstanceUids
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 4a8abdfb-12b5-5b9e-837d-5fa3679249bc
+		summarizeBy: none
+		sourceColumn: distinctSeriesInstanceUids
+
+		annotation SummarizationSetBy = Automatic
+
+	column distinctSopInstanceUids
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 7ef71e41-8c74-51e6-863d-6bfc732aab5c
+		summarizeBy: none
+		sourceColumn: distinctSopInstanceUids
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsScanned
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 11840e5e-864c-5b4f-991f-ee23d2d7e93c
+		summarizeBy: none
+		sourceColumn: sourceRowsScanned
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsActive
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 856ce528-d3f3-5f74-81e7-a887ab8bb177
+		summarizeBy: none
+		sourceColumn: sourceRowsActive
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsDeduplicated
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 9c400560-298f-5300-9308-cd9292e8c803
+		summarizeBy: none
+		sourceColumn: sourceRowsDeduplicated
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsJoinedToImagingStudy
+		dataType: int64
+		formatString: #,##0
+		lineageTag: d3de0444-4fd1-5a0f-9160-9f96b7ad18c5
+		summarizeBy: none
+		sourceColumn: sourceRowsJoinedToImagingStudy
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsMissingImagingStudy
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 4339487b-ef33-53df-b6cb-356ceff7306e
+		summarizeBy: none
+		sourceColumn: sourceRowsMissingImagingStudy
+
+		annotation SummarizationSetBy = Automatic
+
+	column metadataRowsParsed
+		dataType: int64
+		formatString: #,##0
+		lineageTag: e205ace8-fa8a-5089-befc-c0d165b25a5f
+		summarizeBy: none
+		sourceColumn: metadataRowsParsed
+
+		annotation SummarizationSetBy = Automatic
+
+	column metadataRowsParseFailed
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 46b9a838-ea6a-505d-8371-9e403075aef1
+		summarizeBy: none
+		sourceColumn: metadataRowsParseFailed
+
+		annotation SummarizationSetBy = Automatic
+
+	column extensionRowsStaged
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 80162a6e-371d-5937-a6aa-3487c60556f9
+		summarizeBy: none
+		sourceColumn: extensionRowsStaged
+
+		annotation SummarizationSetBy = Automatic
+
+	column extensionRowsInserted
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 40adf658-eab7-5ea4-afdc-8b73513be780
+		summarizeBy: none
+		sourceColumn: extensionRowsInserted
+
+		annotation SummarizationSetBy = Automatic
+
+	column extensionRowsUpdated
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 13baa104-21a9-506e-b354-592c7a92535b
+		summarizeBy: none
+		sourceColumn: extensionRowsUpdated
+
+		annotation SummarizationSetBy = Automatic
+
+	column studyUidMismatchRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: ace634b1-030c-5ff7-8412-1bf5fc361898
+		summarizeBy: none
+		sourceColumn: studyUidMismatchRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column seriesUidMismatchRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: dc06ddab-bf58-5c0e-9627-5585e54756c7
+		summarizeBy: none
+		sourceColumn: seriesUidMismatchRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column sopUidMismatchRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 2ddb73b5-93b0-535a-b335-bc4f33dd68ce
+		summarizeBy: none
+		sourceColumn: sopUidMismatchRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column hoursSinceLastSuccess
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 313f2c63-8be3-5ba8-a4cb-fb811480640f
+		summarizeBy: none
+		sourceColumn: hoursSinceLastSuccess
+
+		annotation SummarizationSetBy = Automatic
+
+	column staleWarningHours
+		dataType: int64
+		formatString: #,##0
+		lineageTag: c964b06a-f681-556b-8ab3-97b6fb04643d
+		summarizeBy: none
+		sourceColumn: staleWarningHours
+
+		annotation SummarizationSetBy = Automatic
+
+	column staleErrorHours
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 11d25801-3a10-5e44-b826-532bfd1a3eb9
+		summarizeBy: none
+		sourceColumn: staleErrorHours
+
+		annotation SummarizationSetBy = Automatic
+
+	column maxParseFailureRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 7bb90001-0000-5000-9000-000000000001
+		summarizeBy: none
+		sourceColumn: maxParseFailureRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column maxMissingImagingStudyRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 7bb90002-0000-5000-9000-000000000002
+		summarizeBy: none
+		sourceColumn: maxMissingImagingStudyRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column maxUidMismatchRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 7bb90003-0000-5000-9000-000000000003
+		summarizeBy: none
+		sourceColumn: maxUidMismatchRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column maxDeduplicationRate
+		dataType: double
+		formatString: 0.0%
+		lineageTag: 7bb90004-0000-5000-9000-000000000004
+		summarizeBy: none
+		sourceColumn: maxDeduplicationRate
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 73e07730-2748-55a8-8e1f-1fb2dbe6d4c9
+		summarizeBy: none
+		sourceColumn: createdAt
+		isHidden
+		annotation SummarizationSetBy = Automatic
+
+	column createdAtDisplay
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7bc00001-1000-5000-9000-000000000006
+		summarizeBy: none
+		sourceColumn: createdAtDisplay
+
+		annotation SummarizationSetBy = Automatic
+
+
+	partition Health = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionHealth
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

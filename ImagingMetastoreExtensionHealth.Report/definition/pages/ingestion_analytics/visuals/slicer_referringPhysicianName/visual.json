@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "slicer_referringPhysicianName",
+  "position": {
+    "x": 640,
+    "y": 270,
+    "z": 20,
+    "height": 65,
+    "width": 290,
+    "tabOrder": 20
+  },
+  "visual": {
+    "visualType": "slicer",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionSearch"
+                    }
+                  },
+                  "Property": "referringPhysicianName"
+                }
+              },
+              "queryRef": "IngestionSearch.referringPhysicianName",
+              "nativeQueryRef": "referringPhysicianName"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+table Alert
+	lineageTag: 44327dd0-0561-503a-a40e-1922b274ad05
+
+	column alertRunId
+		dataType: string
+		lineageTag: 7aa09933-e4ee-5414-89e7-89a195bff1ce
+		summarizeBy: none
+		sourceColumn: alertRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column severity
+		dataType: string
+		lineageTag: 3bc6a25a-e04b-5cba-b870-f4c62ff98a26
+		summarizeBy: none
+		sourceColumn: severity
+
+		annotation SummarizationSetBy = Automatic
+
+	column alertName
+		dataType: string
+		lineageTag: 55ba17cf-1bbc-5429-8b46-fccd50980dab
+		summarizeBy: none
+		sourceColumn: alertName
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: 8564ebd4-7930-56ab-8a43-60c85b84d792
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 0091fdd3-20b1-5780-845f-5170da6116b9
+		summarizeBy: none
+		sourceColumn: createdAt
+
+		annotation SummarizationSetBy = Automatic
+	column isCurrent
+		dataType: boolean
+		lineageTag: 7aa09933-e4ee-5414-89e7-89a195bff201
+		summarizeBy: none
+		sourceColumn: isCurrent
+
+	column resolvedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7aa09933-e4ee-5414-89e7-89a195bff202
+		summarizeBy: none
+		sourceColumn: resolvedAt
+
+
+	partition Alert = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionAlert
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

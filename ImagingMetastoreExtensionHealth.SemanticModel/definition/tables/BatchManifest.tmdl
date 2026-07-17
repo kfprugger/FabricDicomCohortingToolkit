@@ -1,0 +1,155 @@
+table BatchManifest
+	lineageTag: d0b54e80-cd16-540e-a3b4-4eb6c452fbb9
+
+	column manifestBatchId
+		dataType: string
+		lineageTag: 64476167-3969-5f7e-bee1-1a9d765893f0
+		summarizeBy: none
+		sourceColumn: manifestBatchId
+
+		annotation SummarizationSetBy = Automatic
+
+	column orchestrationRunId
+		dataType: string
+		lineageTag: a2527b8c-dfab-5e86-a9e1-d05922b43dc0
+		summarizeBy: none
+		sourceColumn: orchestrationRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column pipelineName
+		dataType: string
+		lineageTag: 506a4a6b-53c8-584d-8802-e345d4ffebc7
+		summarizeBy: none
+		sourceColumn: pipelineName
+
+		annotation SummarizationSetBy = Automatic
+
+	column targetTable
+		dataType: string
+		lineageTag: e89d9ed9-2ba9-5f3e-b87a-9e8ac9bafcee
+		summarizeBy: none
+		sourceColumn: targetTable
+
+		annotation SummarizationSetBy = Automatic
+
+	column batchMode
+		dataType: string
+		lineageTag: 19a60fcc-4c16-5823-b70c-24de4ecd9a33
+		summarizeBy: none
+		sourceColumn: batchMode
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceSystem
+		dataType: string
+		lineageTag: d26c7a52-6c7c-54f0-8552-5e1318d8af6d
+		summarizeBy: none
+		sourceColumn: sourceSystem
+
+		annotation SummarizationSetBy = Automatic
+
+	column hashBucket
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 63376b44-e801-5fb3-9267-9ba0a20c7853
+		summarizeBy: none
+		sourceColumn: hashBucket
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceModifiedStart
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: bb2db563-ebff-558b-86a5-7ca00c40d1d5
+		summarizeBy: none
+		sourceColumn: sourceModifiedStart
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceModifiedEnd
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: f75ca6c1-38c7-50d3-bf3d-b1e41ae01e5b
+		summarizeBy: none
+		sourceColumn: sourceModifiedEnd
+
+		annotation SummarizationSetBy = Automatic
+
+	column filterStudyInstanceUids
+		dataType: string
+		lineageTag: 7ee0f3ab-e6ba-560a-9745-b3a3a38e116d
+		summarizeBy: none
+		sourceColumn: filterStudyInstanceUids
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: e9013408-a4fa-5e1c-a5f7-fb5ae09a2d64
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsExpected
+		dataType: int64
+		formatString: #,##0
+		lineageTag: f94496fc-3e43-5544-add4-0ed482259c3d
+		summarizeBy: none
+		sourceColumn: sourceRowsExpected
+
+		annotation SummarizationSetBy = Automatic
+
+	column sourceRowsProcessed
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 277956e3-051d-5bfc-b6ca-bf0e540a7347
+		summarizeBy: none
+		sourceColumn: sourceRowsProcessed
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 24423356-5b9c-5770-b87d-9ace08148dc2
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: b97926a9-9b43-5b75-9af1-00b7b40364a4
+		summarizeBy: none
+		sourceColumn: completedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column errorMessage
+		dataType: string
+		lineageTag: e6466554-4177-5111-ad81-cac2a451dd6f
+		summarizeBy: none
+		sourceColumn: errorMessage
+
+		annotation SummarizationSetBy = Automatic
+
+	column updatedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8015f59c-81c6-533e-bff8-eb4868a112ae
+		summarizeBy: none
+		sourceColumn: updatedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition BatchManifest = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionBatchManifest
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

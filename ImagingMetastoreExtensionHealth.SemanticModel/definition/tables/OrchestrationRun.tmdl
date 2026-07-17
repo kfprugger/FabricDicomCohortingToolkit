@@ -1,0 +1,69 @@
+table OrchestrationRun
+	lineageTag: 9b66d3e8-888e-50bd-909e-a2aa11e3ce8c
+
+	column orchestrationRunId
+		dataType: string
+		lineageTag: 3983e4e6-d90b-5aa3-b480-aec1705bf634
+		summarizeBy: none
+		sourceColumn: orchestrationRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column runMode
+		dataType: string
+		lineageTag: dbff6e15-064a-5c38-bc87-41e2978c6d70
+		summarizeBy: none
+		sourceColumn: runMode
+
+		annotation SummarizationSetBy = Automatic
+
+	column execute
+		dataType: boolean
+		lineageTag: 7d36db11-98bc-5128-8897-d47f7759ba1d
+		summarizeBy: none
+		sourceColumn: execute
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 51fd1f3f-b06b-5e01-8f3f-344e69605bb3
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: 764ddeae-f087-5b1a-b4f1-23a9a0233ec5
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	column startedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8f98d52f-762d-5fdd-a02a-da33f78c76e0
+		summarizeBy: none
+		sourceColumn: startedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	column completedAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 82a3f8d1-9057-53d1-a188-fb6968fe8053
+		summarizeBy: none
+		sourceColumn: completedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition OrchestrationRun = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionOrchestrationRun
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

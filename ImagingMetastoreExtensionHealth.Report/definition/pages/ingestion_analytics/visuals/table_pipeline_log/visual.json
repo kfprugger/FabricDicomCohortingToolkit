@@ -1,0 +1,163 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_pipeline_log",
+  "position": {
+    "x": 10,
+    "y": 360,
+    "z": 10,
+    "height": 340,
+    "width": 1260,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "startedAt"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.startedAt",
+              "nativeQueryRef": "startedAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "completedAt"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.completedAt",
+              "nativeQueryRef": "completedAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "sourceRowsScanned"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.sourceRowsScanned",
+              "nativeQueryRef": "sourceRowsScanned"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "sourceRowsJoinedToImagingStudy"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.sourceRowsJoinedToImagingStudy",
+              "nativeQueryRef": "sourceRowsJoinedToImagingStudy"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "metadataRowsParseFailed"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.metadataRowsParseFailed",
+              "nativeQueryRef": "metadataRowsParseFailed"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "extensionRowsInserted"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.extensionRowsInserted",
+              "nativeQueryRef": "extensionRowsInserted"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "extensionRowsUpdated"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.extensionRowsUpdated",
+              "nativeQueryRef": "extensionRowsUpdated"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "errorClass"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.errorClass",
+              "nativeQueryRef": "errorClass"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "IngestionPipelineLog"
+                    }
+                  },
+                  "Property": "errorMessage"
+                }
+              },
+              "queryRef": "IngestionPipelineLog.errorMessage",
+              "nativeQueryRef": "errorMessage"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

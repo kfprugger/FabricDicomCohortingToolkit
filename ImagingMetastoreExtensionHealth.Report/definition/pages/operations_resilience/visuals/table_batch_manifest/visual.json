@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_batch_manifest",
+  "position": {
+    "x": 10,
+    "y": 220,
+    "z": 2012,
+    "height": 220,
+    "width": 610,
+    "tabOrder": 2012
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "updatedAt"
+                }
+              },
+              "queryRef": "BatchManifest.updatedAt",
+              "nativeQueryRef": "updatedAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "batchMode"
+                }
+              },
+              "queryRef": "BatchManifest.batchMode",
+              "nativeQueryRef": "batchMode"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "BatchManifest.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "sourceRowsExpected"
+                }
+              },
+              "queryRef": "BatchManifest.sourceRowsExpected",
+              "nativeQueryRef": "sourceRowsExpected"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "sourceRowsProcessed"
+                }
+              },
+              "queryRef": "BatchManifest.sourceRowsProcessed",
+              "nativeQueryRef": "sourceRowsProcessed"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "BatchManifest"
+                    }
+                  },
+                  "Property": "errorMessage"
+                }
+              },
+              "queryRef": "BatchManifest.errorMessage",
+              "nativeQueryRef": "errorMessage"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_alerts",
+  "position": {
+    "x": 640,
+    "y": 220,
+    "z": 2013,
+    "height": 220,
+    "width": 620,
+    "tabOrder": 2013
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Alert"
+                    }
+                  },
+                  "Property": "createdAt"
+                }
+              },
+              "queryRef": "Alert.createdAt",
+              "nativeQueryRef": "createdAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Alert"
+                    }
+                  },
+                  "Property": "severity"
+                }
+              },
+              "queryRef": "Alert.severity",
+              "nativeQueryRef": "severity"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Alert"
+                    }
+                  },
+                  "Property": "alertName"
+                }
+              },
+              "queryRef": "Alert.alertName",
+              "nativeQueryRef": "alertName"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Alert"
+                    }
+                  },
+                  "Property": "message"
+                }
+              },
+              "queryRef": "Alert.message",
+              "nativeQueryRef": "message"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

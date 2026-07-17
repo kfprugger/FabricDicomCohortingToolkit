@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_preflight_failures",
+  "position": {
+    "x": 10,
+    "y": 110,
+    "z": 1006,
+    "height": 80,
+    "width": 200,
+    "tabOrder": 1006
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Preflight Failures"
+                }
+              },
+              "queryRef": "_Measures.Preflight Failures",
+              "nativeQueryRef": "Preflight Failures"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

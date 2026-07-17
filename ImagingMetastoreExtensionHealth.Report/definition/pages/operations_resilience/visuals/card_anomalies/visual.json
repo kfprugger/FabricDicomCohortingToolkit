@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_anomalies",
+  "position": {
+    "x": 1060,
+    "y": 10,
+    "z": 1005,
+    "height": 80,
+    "width": 200,
+    "tabOrder": 1005
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Anomaly Count"
+                }
+              },
+              "queryRef": "_Measures.Anomaly Count",
+              "nativeQueryRef": "Anomaly Count"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

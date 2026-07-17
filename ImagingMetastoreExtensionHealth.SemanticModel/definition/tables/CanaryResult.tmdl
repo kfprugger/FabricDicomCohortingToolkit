@@ -1,0 +1,70 @@
+table CanaryResult
+	lineageTag: bae8a037-0247-5cec-8e52-0ff1da15bcb5
+
+	column canaryRunId
+		dataType: string
+		lineageTag: dc6a0a79-397f-5eeb-a241-ac35dc8e82aa
+		summarizeBy: none
+		sourceColumn: canaryRunId
+
+		annotation SummarizationSetBy = Automatic
+
+	column studyInstanceUid
+		dataType: string
+		lineageTag: e376f85c-f91c-59cf-ae1a-2a7676a8a86d
+		summarizeBy: none
+		sourceColumn: studyInstanceUid
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 8a49f6d6-5ddd-50e0-93b4-2f6954d104b8
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column message
+		dataType: string
+		lineageTag: 849a5fed-1b67-5ee8-9c75-a86ff692b3a7
+		summarizeBy: none
+		sourceColumn: message
+
+		annotation SummarizationSetBy = Automatic
+
+	column targetRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 06ab1778-d7e6-55d1-95ce-979bd4d5279e
+		summarizeBy: none
+		sourceColumn: targetRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column badNameRows
+		dataType: int64
+		formatString: #,##0
+		lineageTag: ac658b4c-9b4b-51a4-850d-dd18ad48ac18
+		summarizeBy: none
+		sourceColumn: badNameRows
+
+		annotation SummarizationSetBy = Automatic
+
+	column createdAt
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: f1a3e172-1d91-5284-896e-18a3ed8349ef
+		summarizeBy: none
+		sourceColumn: createdAt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition CanaryResult = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionCanaryResult
+			schemaName: dbo
+			expressionSource: AdminSource
+
+	annotation PBI_ResultType = Table

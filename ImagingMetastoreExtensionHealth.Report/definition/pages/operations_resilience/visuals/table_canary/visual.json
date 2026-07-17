@@ -1,0 +1,80 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "table_canary",
+  "position": {
+    "x": 960,
+    "y": 460,
+    "z": 2016,
+    "height": 240,
+    "width": 300,
+    "tabOrder": 2016
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "CanaryResult"
+                    }
+                  },
+                  "Property": "createdAt"
+                }
+              },
+              "queryRef": "CanaryResult.createdAt",
+              "nativeQueryRef": "createdAt"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "CanaryResult"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "CanaryResult.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "CanaryResult"
+                    }
+                  },
+                  "Property": "studyInstanceUid"
+                }
+              },
+              "queryRef": "CanaryResult.studyInstanceUid",
+              "nativeQueryRef": "studyInstanceUid"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "CanaryResult"
+                    }
+                  },
+                  "Property": "message"
+                }
+              },
+              "queryRef": "CanaryResult.message",
+              "nativeQueryRef": "message"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

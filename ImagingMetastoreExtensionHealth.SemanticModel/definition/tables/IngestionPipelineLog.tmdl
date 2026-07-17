@@ -1,0 +1,62 @@
+table IngestionPipelineLog
+	lineageTag: 8a7b1c22-2f71-4a5a-9d1e-000000000501
+
+	column snapshotAt
+		dataType: dateTime
+		summarizeBy: none
+		sourceColumn: snapshotAt
+	column extractRunId
+		dataType: string
+		summarizeBy: none
+		sourceColumn: extractRunId
+	column batchId
+		dataType: string
+		summarizeBy: none
+		sourceColumn: batchId
+	column status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: status
+	column startedAt
+		dataType: dateTime
+		summarizeBy: none
+		sourceColumn: startedAt
+	column completedAt
+		dataType: dateTime
+		summarizeBy: none
+		sourceColumn: completedAt
+	column sourceRowsScanned
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: sourceRowsScanned
+	column sourceRowsJoinedToImagingStudy
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: sourceRowsJoinedToImagingStudy
+	column metadataRowsParseFailed
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: metadataRowsParseFailed
+	column extensionRowsInserted
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionRowsInserted
+	column extensionRowsUpdated
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: extensionRowsUpdated
+	column errorClass
+		dataType: string
+		summarizeBy: none
+		sourceColumn: errorClass
+	column errorMessage
+		dataType: string
+		summarizeBy: none
+		sourceColumn: errorMessage
+	partition IngestionPipelineLog = entity
+		mode: directLake
+		source
+			entityName: ImagingMetastoreExtensionPipelineLog
+			schemaName: dbo
+			expressionSource: AdminSource
+	annotation PBI_ResultType = Table

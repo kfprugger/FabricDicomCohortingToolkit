@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "card_missing_study",
+  "position": {
+    "x": 770,
+    "y": 110,
+    "z": 1008,
+    "height": 90,
+    "width": 240,
+    "tabOrder": 1008
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Last Run Missing ImagingStudy"
+                }
+              },
+              "queryRef": "_Measures.Last Run Missing ImagingStudy",
+              "nativeQueryRef": "Last Run Missing ImagingStudy"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

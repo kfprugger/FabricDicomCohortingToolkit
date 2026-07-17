@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "card_bronze_ingestion_alert",
   "position": {
-    "x": 640,
-    "y": 110,
-    "z": 1009,
-    "height": 90,
-    "width": 200,
-    "tabOrder": 1009
+    "x": 10,
+    "y": 730,
+    "z": 1012,
+    "height": 100,
+    "width": 250,
+    "tabOrder": 1012
   },
   "visual": {
     "visualType": "card",
@@ -32,6 +32,50 @@
           ]
         }
       }
+    },
+    "objects": {
+      "labels": [
+        {
+          "properties": {
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Bronze Ingestion Alert'"
+                }
+              }
+            },
+            "alignment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'center'"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "drillFilterOtherVisuals": true
   }

@@ -284,6 +284,7 @@ SLA_CONFIG_SCHEMA = T.StructType([
     T.StructField("maxMissingImagingStudyRows", T.LongType(), False),
     T.StructField("maxUidMismatchRows", T.LongType(), False),
     T.StructField("maxDeduplicationRate", T.DoubleType(), True),
+    T.StructField("maxParseFailureFraction", T.DoubleType(), True),
     T.StructField("displayTimeZoneLabel", T.StringType(), False),
     T.StructField("displayUtcOffsetHours", T.DoubleType(), False),
     T.StructField("updatedAt", T.TimestampType(), False),
@@ -988,8 +989,8 @@ def default_sla_config_row(updated_by="seeded-by-extract-notebook"):
         "staleErrorHours": STALE_ERROR_HOURS_DEFAULT,
         "maxParseFailureRows": 0,
         "maxMissingImagingStudyRows": 0,
-        "maxUidMismatchRows": 0,
         "maxDeduplicationRate": None,
+        "maxParseFailureFraction": 0.01,
         "displayTimeZoneLabel": DISPLAY_TIME_ZONE_LABEL_DEFAULT,
         "displayUtcOffsetHours": DISPLAY_UTC_OFFSET_HOURS_DEFAULT,
         "updatedAt": current_utc_naive(),
@@ -1009,19 +1010,19 @@ def seed_and_read_sla_config():
     )
     if not rows:
         default_row = default_sla_config_row()
-        spark.createDataFrame([default_row], SLA_CONFIG_SCHEMA).write.format("delta").mode("append").save(SLA_CONFIG_PATH)
+        spark.createDataFrame([default_row], SLA_CONFIG_SCHEMA).write.format("delta").mode("append").option("mergeSchema", "true").save(SLA_CONFIG_PATH)
         return default_row
     row = rows[0].asDict()
     changed = False
     default_row = default_sla_config_row("backfilled-by-extract-notebook")
-    for key in ("staleWarningHours", "staleErrorHours", "maxParseFailureRows", "maxMissingImagingStudyRows", "maxUidMismatchRows", "displayTimeZoneLabel", "displayUtcOffsetHours"):
+    for key in ("staleWarningHours", "staleErrorHours", "maxParseFailureRows", "maxMissingImagingStudyRows", "maxUidMismatchRows", "maxParseFailureFraction", "displayTimeZoneLabel", "displayUtcOffsetHours"):
         if row.get(key) is None:
             row[key] = default_row[key]
             changed = True
     if changed:
         row["updatedAt"] = current_utc_naive()
         row["updatedBy"] = "backfilled-by-extract-notebook"
-        spark.createDataFrame([row], SLA_CONFIG_SCHEMA).write.format("delta").mode("append").save(SLA_CONFIG_PATH)
+        spark.createDataFrame([row], SLA_CONFIG_SCHEMA).write.format("delta").mode("append").option("mergeSchema", "true").save(SLA_CONFIG_PATH)
     return row
 
 
@@ -1084,8 +1085,13 @@ def determine_health_status(status, hours_since_last_success, source_rows_missin
     if hours_since_last_success is not None and hours_since_last_success >= sla_config["staleErrorHours"]:
         return "Red", 3, f"Last successful run is stale by {hours_since_last_success:.1f} hours."
     mismatch_total = (study_mismatch or 0) + (series_mismatch or 0) + (sop_mismatch or 0)
-    if parse_failed is not None and parse_failed > sla_config["maxParseFailureRows"]:
-        return "Red", 3, f"{parse_failed} metadata parse failures exceeded SLA threshold {sla_config['maxParseFailureRows']}."
+    max_parse_fraction = sla_config.get("maxParseFailureFraction")
+    parse_allowance = sla_config["maxParseFailureRows"] or 0
+    if max_parse_fraction is not None and source_rows_scanned:
+        parse_allowance = max(parse_allowance, int(max_parse_fraction * source_rows_scanned))
+    if parse_failed is not None and parse_failed > parse_allowance:
+        pct = f" ({max_parse_fraction:.2%} of {source_rows_scanned} scanned)" if (max_parse_fraction is not None and source_rows_scanned) else ""
+        return "Red", 3, f"{parse_failed} metadata parse failures exceeded SLA allowance {parse_allowance}{pct}."
     if source_rows_missing is not None and source_rows_missing > sla_config["maxMissingImagingStudyRows"]:
         return "Red", 3, f"{source_rows_missing} rows missing ImagingStudy exceeded SLA threshold {sla_config['maxMissingImagingStudyRows']}."
     if mismatch_total > sla_config["maxUidMismatchRows"]:

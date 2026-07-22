@@ -1555,10 +1555,14 @@ def merge_wide_table(staged, active_tags):
         .select("version", "operationMetrics")
         .collect()
     )
-    if len(matching_commits) != 1:
+    if len(matching_commits) > 1:
         raise RuntimeError(
-            f"Expected one tagged MERGE commit for {commit_metadata}; found {len(matching_commits)}."
+            f"Expected at most one tagged MERGE commit for {commit_metadata}; found {len(matching_commits)}."
         )
+    if not matching_commits:
+        # A MERGE with an empty source (or all-unchanged rows) writes no Delta commit.
+        # That is a legitimate no-op incremental, not a failure: nothing inserted/updated.
+        return 0, 0
     operation_metrics = matching_commits[0]["operationMetrics"] or {}
     extension_rows_inserted = int(operation_metrics.get("numTargetRowsInserted", 0))
     extension_rows_updated = int(operation_metrics.get("numTargetRowsUpdated", 0))

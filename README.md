@@ -148,6 +148,8 @@ cd dicom-viewer
 
 This deploys the OHIF Viewer (Static Web App) + DICOMweb proxy (Container App), rebuilds the DICOM index, and grants the proxy's managed identity workspace access. The viewer URL is needed by Step 3.
 
+Image builds use `az acr build --no-logs` to avoid streamed-log encoding failures on Windows. Both the initial and fallback build must report `Succeeded` and return a valid immutable SHA-256 image digest; a CLI disconnect or changed image tag is not treated as build success.
+
 ### Step 3: Run the Materialization Notebook
 
 ```powershell
@@ -252,6 +254,8 @@ A Fabric Data Agent that translates natural-language patient cohorting questions
 - Never return PII (names/addresses/SSNs); use SHA-256 hashed `Patient.id`
 
 **Setup:** Upload the three files to your Fabric Data Agent configuration in the Fabric portal.
+
+`Deploy-DataAgent.ps1` waits for accepted operations within a bounded polling deadline. Transient read-only transport/HTTP failures may be retried, but the original mutation is never replayed. Cancellation, permission/TLS failures, and unverified completion stop deployment; only an explicit result-endpoint 404 permits returning the already verified successful operation status.
 
 ### 2. Materialization Notebook
 

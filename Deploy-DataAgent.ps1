@@ -70,82 +70,72 @@ function Invoke-FabricApi {
         [string]$Method,
         [string]$Uri,
         [string]$Token,
-        [object]$Body
+        [object]$Body,
+        [ValidateRange(1,3600)][int]$MaxWaitSeconds = 300
     )
     $headers = @{
-        Authorization  = "Bearer $Token"
+        Authorization = "Bearer $Token"
         'Content-Type' = 'application/json'
+        'x-ms-fabric-skill' = 'e2e-medallion-architecture'
     }
     $params = @{
-        Method                = $Method
-        Uri                   = $Uri
-        Headers               = $headers
+        Method = $Method
+        Uri = $Uri
+        Headers = $headers
         ResponseHeadersVariable = 'respHeaders'
-        StatusCodeVariable      = 'statusCode'
+        StatusCodeVariable = 'statusCode'
+        TimeoutSec = [Math]::Min(100, $MaxWaitSeconds)
     }
-    if ($Body) {
-        $params.Body = ($Body | ConvertTo-Json -Depth 20)
+    if ($Body) { $params.Body = ($Body | ConvertTo-Json -Depth 20) }
+    # A lost mutation response is ambiguous: never reissue the original request.
+    $response = Invoke-RestMethod @params
+    if ($statusCode -ne 202) { return $response }
+    if (-not $respHeaders.'x-ms-operation-id') {
+        throw "Fabric API $Method $Uri returned HTTP 202 without x-ms-operation-id; operation cannot be verified."
     }
-    try {
-        $response = Invoke-RestMethod @params
-    }
-    catch {
-        $status = $_.Exception.Response.StatusCode.value__
-        $detail = $_.ErrorDetails.Message
-        throw "Fabric API $Method $Uri returned $status : $detail"
-    }
-
-    # Handle Long Running Operations (202 Accepted)
-    if ($statusCode -eq 202) {
-        if (-not $respHeaders.'x-ms-operation-id') {
-            throw "Fabric API $Method $Uri returned HTTP 202 without x-ms-operation-id; operation cannot be verified."
+    $operationId = $respHeaders.'x-ms-operation-id'[0]
+    $retryAfter = if ($respHeaders.'Retry-After') { [Math]::Max(1, [int]$respHeaders.'Retry-After'[0]) } else { 5 }
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    $succeeded = $false
+    while ($watch.Elapsed.TotalSeconds -lt $MaxWaitSeconds) {
+        $remaining = $MaxWaitSeconds - $watch.Elapsed.TotalSeconds
+        Start-Sleep -Milliseconds ([int]([Math]::Min($retryAfter, $remaining) * 1000))
+        $remaining = $MaxWaitSeconds - $watch.Elapsed.TotalSeconds
+        if ($remaining -lt 1) { break }
+        $operationPath = "$fabricApiBase/operations/$operationId"
+        if ($succeeded) { $operationPath += '/result' }
+        try {
+            $opResult = Invoke-RestMethod -Method GET -Uri $operationPath -Headers $headers `
+                -TimeoutSec ([int][Math]::Floor([Math]::Min(30, $remaining))) -ErrorAction Stop
+        } catch {
+            $errCode = $null
+            try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
+            if ($succeeded -and $errCode -eq 404) { return $completedOperation }
+            $networkException = $_.Exception
+            $transport = $false
+            $tlsFailure = $false
+            while ($networkException) {
+                if ($networkException -is [System.Security.Authentication.AuthenticationException]) { $tlsFailure = $true }
+                if ($networkException -is [System.IO.IOException] -or $networkException -is [System.Net.Sockets.SocketException] -or $networkException -is [System.TimeoutException] -or $networkException -is [System.OperationCanceledException]) { $transport = $true }
+                $networkException = $networkException.InnerException
+            }
+            if ($errCode -in @(408,429,500,502,503,504) -or (-not $errCode -and $transport -and -not $tlsFailure)) {
+                Write-Host "  Read-only operation poll transient error; retrying within deadline." -ForegroundColor Yellow
+                continue
+            }
+            # Authentication, TLS validation and inbound-policy denials are not softened.
+            throw
         }
-        $operationId = $respHeaders.'x-ms-operation-id'[0]
-        $retryAfter  = if ($respHeaders.'Retry-After') { [int]$respHeaders.'Retry-After'[0] } else { 5 }
-        Write-Host "  Waiting for operation $operationId ..." -ForegroundColor Yellow
-        $maxWait = 120
-        $elapsed = 0
-        while ($elapsed -lt $maxWait) {
-            Start-Sleep -Seconds $retryAfter
-            $elapsed += $retryAfter
-            try {
-                $opResult = Invoke-RestMethod -Method GET `
-                    -Uri "$fabricApiBase/operations/$operationId" `
-                    -Headers @{ Authorization = "Bearer $Token" }
-            }
-            catch {
-                $errCode = $null
-                $errBody = if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
-                try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-                if (($errCode -eq 403 -and $errBody -match 'RequestDeniedByInboundPolicy|Forbidden') -or $errCode -in @(429, 500, 502, 503, 504)) {
-                    Write-Host "  Operation poll transient HTTP ${errCode}: $errBody" -ForegroundColor Yellow
-                    continue
-                }
-                throw
-            }
-            if ($opResult.status -eq 'Succeeded') {
-                Write-Host "  Operation completed." -ForegroundColor Green
-                # Try to get the result from the operation
-                try {
-                    $opResultDetail = Invoke-RestMethod -Method GET `
-                        -Uri "$fabricApiBase/operations/$operationId/result" `
-                        -Headers @{ Authorization = "Bearer $Token" }
-                    return $opResultDetail
-                }
-                catch {
-                    # Some LROs don't have /result — return the operation status
-                    return $opResult
-                }
-            }
-            elseif ($opResult.status -in @('Failed', 'Cancelled', 'Canceled')) {
-                throw "Operation $operationId ended with status '$($opResult.status)': $($opResult | ConvertTo-Json -Depth 5)"
-            }
-            Write-Host "  Still running ($elapsed s) ..." -ForegroundColor Yellow
+        if ($watch.Elapsed.TotalSeconds -ge $MaxWaitSeconds) { break }
+        if ($succeeded) { return $opResult }
+        if ($opResult.status -eq 'Succeeded') {
+            $completedOperation = $opResult
+            $succeeded = $true
+        } elseif ($opResult.status -in @('Failed','Cancelled','Canceled')) {
+            throw "Operation $operationId ended with status '$($opResult.status)': $($opResult | ConvertTo-Json -Depth 5)"
         }
-        throw "Operation $operationId timed out after $maxWait seconds."
     }
-
-    return $response
+    throw "Operation $operationId timed out after $MaxWaitSeconds seconds; success was not verified."
 }
 
 # ── Resolve workspace name → ID ──────────────────────────────────────

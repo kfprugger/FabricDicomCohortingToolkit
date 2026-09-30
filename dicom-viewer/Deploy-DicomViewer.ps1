@@ -415,14 +415,14 @@ $acrLogin = az acr show --name $acrNameParam --query loginServer -o tsv
 Assert-LastExitCode "ACR lookup"
 if ([string]::IsNullOrWhiteSpace($acrLogin)) { throw "ACR login server not found for $acrNameParam" }
 
-$proxyImageTag = "deploy-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
+$proxyImageTag = "deploy-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')-$([guid]::NewGuid().ToString('N').Substring(0,8))"
 Write-Host "  Building image via ACR Tasks (no local Docker needed): ${BaseName}-proxy:$proxyImageTag..."
-$acrBuildOutput = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$proxyImageTag" $proxyDir 2>&1
+$acrBuildOutput = az acr build --no-logs --registry $acrNameParam --image "${BaseName}-proxy:$proxyImageTag" $proxyDir --query status --output tsv --only-show-errors 2>&1
 $acrBuildExit = $LASTEXITCODE
 $acrBuildOutput | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
-if ($acrBuildExit -ne 0) { throw "ACR build failed with exit code $acrBuildExit" }
+if ($acrBuildExit -ne 0 -or (($acrBuildOutput -join "`n").Trim() -ne "Succeeded")) { throw "ACR build did not report successful completion (exit $acrBuildExit)" }
 $proxyImageDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$proxyImageTag" --query digest -o tsv 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($proxyImageDigest)) { throw "Could not resolve immutable DICOM proxy image digest" }
+if ($LASTEXITCODE -ne 0 -or "$proxyImageDigest".Trim() -notmatch '^sha256:[0-9a-f]{64}$') { throw "Could not resolve immutable DICOM proxy image digest" }
 $proxyImageReference = "${acrLogin}/${BaseName}-proxy@$proxyImageDigest"
 Write-Host "  Image built: $proxyImageReference" -ForegroundColor Green
 
@@ -564,13 +564,13 @@ if (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $p
         Write-Host "  The initial proxy image did not contain a usable OHIF build; rebuilding it from the completed dist directory." -ForegroundColor Yellow
         if (Test-Path $proxyOhifDir) { Remove-Item $proxyOhifDir -Recurse -Force }
         Copy-Item $distDir $proxyOhifDir -Recurse -Force
-        $fallbackTag = "ohif-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
-        $fallbackBuild = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$fallbackTag" $proxyDir 2>&1
+        $fallbackTag = "ohif-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+        $fallbackBuild = az acr build --no-logs --registry $acrNameParam --image "${BaseName}-proxy:$fallbackTag" $proxyDir --query status --output tsv --only-show-errors 2>&1
         $fallbackExit = $LASTEXITCODE
         $fallbackBuild | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
-        if ($fallbackExit -ne 0) { throw "Proxy-hosted OHIF image build failed with exit code $fallbackExit" }
+        if ($fallbackExit -ne 0 -or (($fallbackBuild -join "`n").Trim() -ne "Succeeded")) { throw "Proxy-hosted OHIF image build did not report success (exit $fallbackExit)" }
         $fallbackDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$fallbackTag" --query digest -o tsv 2>$null
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($fallbackDigest)) { throw "Could not resolve proxy-hosted OHIF image digest" }
+        if ($LASTEXITCODE -ne 0 -or "$fallbackDigest".Trim() -notmatch '^sha256:[0-9a-f]{64}$') { throw "Could not resolve proxy-hosted OHIF image digest" }
         $fallbackImage = "${acrLogin}/${BaseName}-proxy@$fallbackDigest"
         az containerapp update --name $proxyName --resource-group $ResourceGroup --image $fallbackImage --set-env-vars "OHIF_DEPLOYMENT_ID=$fallbackTag" --output none
         Assert-LastExitCode "Proxy-hosted OHIF Container App update"

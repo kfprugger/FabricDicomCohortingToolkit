@@ -82,6 +82,7 @@ function Invoke-FabricApi {
         Headers               = $headers
         ResponseHeadersVariable = 'respHeaders'
         StatusCodeVariable      = 'statusCode'
+        TimeoutSec              = 100
     }
     if ($Body) {
         $params.Body = ($Body | ConvertTo-Json -Depth 20)
@@ -103,22 +104,23 @@ function Invoke-FabricApi {
         $operationId = $respHeaders.'x-ms-operation-id'[0]
         $retryAfter  = if ($respHeaders.'Retry-After') { [int]$respHeaders.'Retry-After'[0] } else { 5 }
         Write-Host "  Waiting for operation $operationId ..." -ForegroundColor Yellow
-        $maxWait = 120
+        $maxWait = 300
         $elapsed = 0
         while ($elapsed -lt $maxWait) {
             Start-Sleep -Seconds $retryAfter
             $elapsed += $retryAfter
             try {
                 $opResult = Invoke-RestMethod -Method GET `
-                    -Uri "$fabricApiBase/operations/$operationId" `
+                    -Uri "$fabricApiBase/operations/$operationId" -TimeoutSec 30 `
                     -Headers @{ Authorization = "Bearer $Token" }
             }
             catch {
                 $errCode = $null
                 $errBody = if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
                 try { $errCode = [int]$_.Exception.Response.StatusCode } catch {}
-                if (($errCode -eq 403 -and $errBody -match 'RequestDeniedByInboundPolicy|Forbidden') -or $errCode -in @(429, 500, 502, 503, 504)) {
-                    Write-Host "  Operation poll transient HTTP ${errCode}: $errBody" -ForegroundColor Yellow
+                $isConnLevel = ($null -eq $errCode) -and ($errBody -match 'error occurred while sending the request|forcibly closed|actively refused|reset by peer|10054|timed out|operation has timed out|transport connection|SSL connection could not be established|task was canceled|The request was canceled')
+                if (($errCode -eq 403 -and $errBody -match 'RequestDeniedByInboundPolicy|Forbidden') -or $errCode -in @(429, 500, 502, 503, 504) -or $isConnLevel) {
+                    Write-Host "  Operation poll transient error (HTTP ${errCode}): $errBody" -ForegroundColor Yellow
                     continue
                 }
                 throw
@@ -128,7 +130,7 @@ function Invoke-FabricApi {
                 # Try to get the result from the operation
                 try {
                     $opResultDetail = Invoke-RestMethod -Method GET `
-                        -Uri "$fabricApiBase/operations/$operationId/result" `
+                        -Uri "$fabricApiBase/operations/$operationId/result" -TimeoutSec 30 `
                         -Headers @{ Authorization = "Bearer $Token" }
                     return $opResultDetail
                 }

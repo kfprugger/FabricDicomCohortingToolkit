@@ -417,12 +417,14 @@ if ([string]::IsNullOrWhiteSpace($acrLogin)) { throw "ACR login server not found
 
 $proxyImageTag = "deploy-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
 Write-Host "  Building image via ACR Tasks (no local Docker needed): ${BaseName}-proxy:$proxyImageTag..."
-$acrBuildOutput = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$proxyImageTag" $proxyDir 2>&1
+$acrBuildOutput = az acr build --no-logs --registry $acrNameParam --image "${BaseName}-proxy:$proxyImageTag" --image "${BaseName}-proxy:latest" $proxyDir 2>&1
 $acrBuildExit = $LASTEXITCODE
 $acrBuildOutput | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
-if ($acrBuildExit -ne 0) { throw "ACR build failed with exit code $acrBuildExit" }
+# On Windows, `az acr build` can crash while streaming logs (cp1252/colorama on
+# Unicode output) and return a non-zero exit code even though the server-side
+# build succeeded. Treat a resolvable image digest as the source of truth.
 $proxyImageDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$proxyImageTag" --query digest -o tsv 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($proxyImageDigest)) { throw "Could not resolve immutable DICOM proxy image digest" }
+if ([string]::IsNullOrWhiteSpace($proxyImageDigest)) { throw "ACR build failed (exit code $acrBuildExit) and no image digest was produced" }
 $proxyImageReference = "${acrLogin}/${BaseName}-proxy@$proxyImageDigest"
 Write-Host "  Image built: $proxyImageReference" -ForegroundColor Green
 
@@ -431,7 +433,7 @@ Write-Host "`n[3/6] Deploying infrastructure..." -ForegroundColor Yellow
 $deploymentRaw = az deployment group create `
     --resource-group $ResourceGroup `
     --template-file "$scriptDir/infra/main.bicep" `
-    --parameters baseName=$BaseName swaName=$effectiveSwaName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName acrName=$acrNameParam proxyImage=$proxyImageReference `
+    --parameters baseName=$BaseName location=$Location swaLocation=$SwaLocation fabricSqlServer=$fabricServer fabricSqlDatabase=$silverLhName acrName=$acrNameParam `
     --query "properties.outputs" `
     --output json
 Assert-LastExitCode "DICOM viewer infrastructure deployment"
@@ -446,6 +448,12 @@ $proxyUrl = $deployment.proxyUrl.value
 $proxyName = $deployment.proxyName.value
 $swaName = $deployment.ohifSwaName.value
 $swaHostname = $deployment.ohifSwaDefaultHostname.value
+
+# main.bicep provisions the Container App with a "${baseName}-proxy:latest"
+# placeholder image; point it at the freshly built proxy image digest.
+az containerapp update --name $proxyName --resource-group $ResourceGroup --image $proxyImageReference --output none
+Assert-LastExitCode "DICOM proxy Container App image update"
+
 $currentState.proxyUrl = $proxyUrl
 $currentState.proxyName = $proxyName
 $currentState.swaName = $swaName
@@ -565,12 +573,12 @@ if (Test-DicomViewerDeploymentHealth -ResourceGroup $ResourceGroup -ProxyName $p
         if (Test-Path $proxyOhifDir) { Remove-Item $proxyOhifDir -Recurse -Force }
         Copy-Item $distDir $proxyOhifDir -Recurse -Force
         $fallbackTag = "ohif-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')"
-        $fallbackBuild = az acr build --registry $acrNameParam --image "${BaseName}-proxy:$fallbackTag" $proxyDir 2>&1
+        $fallbackBuild = az acr build --no-logs --registry $acrNameParam --image "${BaseName}-proxy:$fallbackTag" $proxyDir 2>&1
         $fallbackExit = $LASTEXITCODE
         $fallbackBuild | ForEach-Object { if ($_ -match "Step|Successfully|Run ID|Elapsed|digest") { Write-Host "  $_" } }
-        if ($fallbackExit -ne 0) { throw "Proxy-hosted OHIF image build failed with exit code $fallbackExit" }
+        # See note above: trust the resolvable image digest over the CLI exit code.
         $fallbackDigest = az acr manifest show-metadata --registry $acrNameParam --name "${BaseName}-proxy:$fallbackTag" --query digest -o tsv 2>$null
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($fallbackDigest)) { throw "Could not resolve proxy-hosted OHIF image digest" }
+        if ([string]::IsNullOrWhiteSpace($fallbackDigest)) { throw "Proxy-hosted OHIF image build failed (exit code $fallbackExit) and no image digest was produced" }
         $fallbackImage = "${acrLogin}/${BaseName}-proxy@$fallbackDigest"
         az containerapp update --name $proxyName --resource-group $ResourceGroup --image $fallbackImage --set-env-vars "OHIF_DEPLOYMENT_ID=$fallbackTag" --output none
         Assert-LastExitCode "Proxy-hosted OHIF Container App update"

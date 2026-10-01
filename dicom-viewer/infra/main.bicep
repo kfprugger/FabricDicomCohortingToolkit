@@ -6,10 +6,13 @@
 param location string = resourceGroup().location
 
 @description('Azure region for Static Web App (not available in all regions)')
-param swaLocation string = 'westus2'
+param swaLocation string = 'eastus2'
 
 @description('Base name for resources')
 param baseName string = 'dicom'
+
+@description('Static Web App resource name; versioned to replace unhealthy edge distributions without renaming other resources')
+param swaName string = '${baseName}-ohif-v2'
 
 @description('Fabric SQL analytics endpoint server (for runtime index refresh)')
 param fabricSqlServer string = ''
@@ -20,6 +23,9 @@ param fabricSqlDatabase string = ''
 @description('Static Web App SKU')
 @allowed(['Free', 'Standard'])
 param swaSku string = 'Free'
+
+@description('Immutable proxy image reference, preferably registry/repository@sha256:digest')
+param proxyImage string
 
 @description('ACR name for proxy container image (globally unique)')
 param acrName string = '${replace(baseName, '-', '')}${uniqueString(resourceGroup().id)}acr'
@@ -98,7 +104,7 @@ resource proxy 'Microsoft.App/containerApps@2023-05-01' = {
       containers: [
         {
           name: 'proxy'
-          image: '${acr.properties.loginServer}/${baseName}-proxy:latest'
+          image: proxyImage
           resources: {
             cpu: json('0.5')
             memory: '1.0Gi'
@@ -139,7 +145,7 @@ resource proxy 'Microsoft.App/containerApps@2023-05-01' = {
 
 // Static Web App for OHIF Viewer
 resource swa 'Microsoft.Web/staticSites@2022-09-01' = {
-  name: '${baseName}-ohif'
+  name: swaName
   location: swaLocation
   sku: {
     name: swaSku

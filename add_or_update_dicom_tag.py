@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 import notebookutils
 import requests
 from delta.tables import DeltaTable
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import SparkSession, functions as F, types as T, Window
 
 spark = SparkSession.builder.getOrCreate()
 
@@ -54,6 +54,7 @@ SUPPORTED_VALUE_MODES = {
     "PERSON_NAME_ALPHABETIC",
     "ALL_STRINGS_JSON",
     "ALL_DISTINCT_STRINGS_JSON",
+    "SEQUENCE_ITEMS_JSON",
 }
 STRING_VALUE_VRS = {
     "AE", "AS", "CS", "DA", "DS", "DT", "IS", "LO", "LT", "SH", "ST", "TM", "UC", "UI", "UR", "UT",
@@ -220,15 +221,19 @@ def discover_paths_in_payload(payload, target_tag):
     try:
         root = json.loads(payload)
     except (TypeError, json.JSONDecodeError):
-        return set(), set(), False
+        return set(), set(), False, 0
     paths = set()
     observed_vrs = set()
+    target_shape_errors = 0
 
     def walk(dataset, prefix):
+        nonlocal target_shape_errors
         if not isinstance(dataset, dict):
             return
         for tag, element in dataset.items():
             if not isinstance(element, dict):
+                if tag == target_tag:
+                    target_shape_errors += 1
                 continue
             values = element.get("Value")
             element_path = f"{prefix}.{tag}.Value[*]"
@@ -244,7 +249,7 @@ def discover_paths_in_payload(payload, target_tag):
                         walk(item, child_prefix)
 
     walk(root, "$")
-    return paths, observed_vrs, True
+    return paths, observed_vrs, True, target_shape_errors
 
 
 def path_tag_chain(path):
@@ -258,36 +263,45 @@ def extract_values_from_path(root, path):
 
     def descend(dataset, index):
         if not isinstance(dataset, dict):
-            return []
+            return [], 1
         element = dataset.get(tag_chain[index])
+        if element is None:
+            return [], 0
         if not isinstance(element, dict):
-            return []
+            return [], 1
         values = element.get("Value")
+        if values is None:
+            return [], 0
         if not isinstance(values, list):
-            return []
+            return [], 1
         if index == len(tag_chain) - 1:
-            return [value for value in values if isinstance(value, (str, int, float))]
+            return [value for value in values if value is not None], sum(value is None for value in values)
         result = []
+        shape_errors = 0
         for item in values:
-            result.extend(descend(item, index + 1))
-        return result
+            child_values, child_errors = descend(item, index + 1)
+            result.extend(child_values)
+            shape_errors += child_errors
+        return result, shape_errors
 
     return descend(root, 0)
 
 
-def analyze_payload_partition(rows, target_tag, cap):
+def analyze_payload_partition(rows, target_tag, expected_vr, cap, configured_paths=None):
     path_counts = {}
     observed_vrs = set()
     valid_json_rows = 0
     rows_with_values = 0
     maximum_values = 0
+    sequence_items = 0
+    invalid_sequence_values = 0
     analyzed_rows = 0
     for row in rows:
         if analyzed_rows >= cap:
             break
         analyzed_rows += 1
         payload = row["_metadata_json"]
-        paths, row_vrs, valid_json = discover_paths_in_payload(payload, target_tag)
+        paths, row_vrs, valid_json, target_shape_errors = discover_paths_in_payload(payload, target_tag)
         if not valid_json:
             continue
         valid_json_rows += 1
@@ -297,10 +311,20 @@ def analyze_payload_partition(rows, target_tag, cap):
         except json.JSONDecodeError:
             continue
         row_values = []
+        row_shape_errors = target_shape_errors
         for path in paths:
             path_counts[path] = path_counts.get(path, 0) + 1
-            row_values.extend(extract_values_from_path(root, path))
-        non_empty = [str(value) for value in row_values if str(value).strip()]
+        extraction_paths = configured_paths if expected_vr == "SQ" and configured_paths is not None else paths
+        for path in extraction_paths:
+            path_values, path_shape_errors = extract_values_from_path(root, path)
+            row_values.extend(path_values)
+            row_shape_errors += path_shape_errors
+        if expected_vr == "SQ":
+            non_empty = [value for value in row_values if isinstance(value, dict)]
+            invalid_sequence_values += row_shape_errors + sum(not isinstance(value, dict) for value in row_values)
+            sequence_items += len(non_empty)
+        else:
+            non_empty = [str(value) for value in row_values if isinstance(value, (str, int, float)) and str(value).strip()]
         if non_empty:
             rows_with_values += 1
         maximum_values = max(maximum_values, len(non_empty))
@@ -310,11 +334,15 @@ def analyze_payload_partition(rows, target_tag, cap):
         "validJsonRows": valid_json_rows,
         "rowsWithValues": rows_with_values,
         "maximumValues": maximum_values,
+        "sequenceItems": sequence_items,
+        "invalidSequenceValues": invalid_sequence_values,
         "analyzedRows": analyzed_rows,
     }
 
 
 def infer_value_mode(paths, expected_vr, maximum_values):
+    if expected_vr == "SQ":
+        return "SEQUENCE_ITEMS_JSON"
     if expected_vr == "PN" and len(paths) == 1 and len(path_tag_chain(paths[0])) == 1:
         return "PERSON_NAME_ALPHABETIC"
     has_nested_path = any(len(path_tag_chain(path)) > 1 for path in paths)
@@ -324,6 +352,42 @@ def infer_value_mode(paths, expected_vr, maximum_values):
         return "CUSTOM_ENGINEERING_REQUIRED"
     return "ALL_DISTINCT_STRINGS_JSON"
 
+
+def count_sequence_items_json(value):
+    if value is None:
+        return 0
+    try:
+        items = json.loads(value)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Stored sequence value is not valid JSON: {exc}") from exc
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise ValueError("Stored sequence value must be a JSON array of item objects.")
+    return len(items)
+
+
+
+def dedupe_sequence_validation_source(candidate_source):
+    ranked = candidate_source.withColumn(
+        "__metadata_length_for_sequence_validation",
+        F.length(F.coalesce(F.col("_metadata_json"), F.lit(""))),
+    )
+    dedupe_window = Window.partitionBy(
+        "msftSourceSystem",
+        "studyInstanceUid",
+        "seriesInstanceUid",
+        "sopInstanceUid",
+        "filePath",
+    ).orderBy(
+        F.col("sourceModifiedAt").desc_nulls_last(),
+        F.col("__metadata_length_for_sequence_validation").desc(),
+        F.col("id").asc_nulls_last(),
+    )
+    return (
+        ranked
+        .withColumn("__sequence_validation_dedupe_rank", F.row_number().over(dedupe_window))
+        .where(F.col("__sequence_validation_dedupe_rank") == 1)
+        .drop("__metadata_length_for_sequence_validation", "__sequence_validation_dedupe_rank")
+    )
 
 def ordered_paths(paths):
     return sorted(paths, key=lambda path: (len(path_tag_chain(path)), path))
@@ -424,22 +488,49 @@ observed_vrs = set()
 valid_json_rows = 0
 rows_with_values = 0
 maximum_values = 0
+sequence_items = 0
+invalid_sequence_values = 0
 analyzed_sample_rows = 0
 partition_summaries = (
     candidate_source.select("_metadata_json").rdd
-    .mapPartitions(lambda rows: analyze_payload_partition(rows, DICOM_TAG, per_partition_cap))
+    .mapPartitions(lambda rows: analyze_payload_partition(rows, DICOM_TAG, EXPECTED_VR, per_partition_cap))
     .collect()
 )
 for partition in partition_summaries:
     valid_json_rows += partition["validJsonRows"]
     rows_with_values += partition["rowsWithValues"]
     maximum_values = max(maximum_values, partition["maximumValues"])
+    sequence_items += partition["sequenceItems"]
+    invalid_sequence_values += partition["invalidSequenceValues"]
     analyzed_sample_rows += partition["analyzedRows"]
     observed_vrs.update(partition["observedVrs"])
     for path, count in partition["pathCounts"].items():
         path_counts[path] = path_counts.get(path, 0) + count
 
 paths = ordered_paths(path_counts)
+if EXPECTED_VR == "SQ" and paths:
+    sequence_validation_summaries = (
+        candidate_source.select("_metadata_json").rdd
+        .mapPartitions(
+            lambda rows: analyze_payload_partition(
+                rows,
+                DICOM_TAG,
+                EXPECTED_VR,
+                per_partition_cap,
+                paths,
+            )
+        )
+        .collect()
+    )
+    rows_with_values = sum(summary["rowsWithValues"] for summary in sequence_validation_summaries)
+    maximum_values = max(
+        (summary["maximumValues"] for summary in sequence_validation_summaries),
+        default=0,
+    )
+    sequence_items = sum(summary["sequenceItems"] for summary in sequence_validation_summaries)
+    invalid_sequence_values = sum(
+        summary["invalidSequenceValues"] for summary in sequence_validation_summaries
+    )
 value_mode = infer_value_mode(paths, EXPECTED_VR, maximum_values) if paths else None
 payload = plan_payload(paths, value_mode) if paths and value_mode else None
 config_hash = configuration_hash(payload) if payload else None
@@ -474,10 +565,12 @@ elif discovery_truncated:
     preview_status = "BLOCKED_DISCOVERY_LIMIT_REACHED"
 elif not paths:
     preview_status = "NEEDS_ENGINEERING"
-elif value_mode == "CUSTOM_ENGINEERING_REQUIRED":
-    preview_status = "NEEDS_ENGINEERING"
 elif observed_vrs and observed_vrs != {EXPECTED_VR}:
     preview_status = "BLOCKED_VR_MISMATCH"
+elif EXPECTED_VR == "SQ" and invalid_sequence_values:
+    preview_status = "BLOCKED_SEQUENCE_SHAPE_MISMATCH"
+elif value_mode == "CUSTOM_ENGINEERING_REQUIRED":
+    preview_status = "NEEDS_ENGINEERING"
 else:
     preview_status = "READY_FOR_GOVERNANCE"
 
@@ -498,6 +591,9 @@ preview_summary = {
     "analyzedSampleRows": analyzed_sample_rows,
     "sampleRowsWithValues": rows_with_values,
     "maximumValuesInSampleRow": maximum_values,
+    "sequenceItemsInSample": sequence_items,
+    "maximumSequenceItemsInSampleRow": maximum_values if EXPECTED_VR == "SQ" else 0,
+    "invalidSequenceValuesInSample": invalid_sequence_values,
     "discoveredPaths": paths,
     "pathSampleCounts": {path: path_counts[path] for path in paths},
     "recommendedValueMode": value_mode,
@@ -631,9 +727,56 @@ else:
         if not validation_uids:
             raise ValueError("No validation Study Instance UIDs were selected.")
 
-        validation_started_at = current_utc_naive()
-        validation_orchestration_id = f"TAG_MANAGER_VALIDATE_{DICOM_TAG}"
         try:
+            expected_validation_sequence_items = None
+            if EXPECTED_VR == "SQ":
+                validation_sequence_source = dedupe_sequence_validation_source(
+                    source_with_metadata.where(F.col("studyInstanceUid").isin(validation_uids))
+                ).where(F.col("_metadata_json").contains(f'"{DICOM_TAG}"'))
+                validation_sequence_keys = validation_sequence_source.select(
+                    F.sha2(
+                        F.concat_ws(
+                            "|",
+                            F.coalesce(F.col("msftSourceSystem"), F.lit("")),
+                            F.coalesce(F.col("studyInstanceUid"), F.lit("")),
+                            F.coalesce(F.col("seriesInstanceUid"), F.lit("")),
+                            F.coalesce(F.col("sopInstanceUid"), F.lit("")),
+                            F.coalesce(F.col("filePath"), F.lit("")),
+                        ),
+                        256,
+                    ).alias("sourceRecordKey")
+                ).distinct()
+                validation_sequence_summaries = (
+                    validation_sequence_source
+                    .select("_metadata_json")
+                    .rdd
+                    .mapPartitions(
+                        lambda rows: analyze_payload_partition(
+                            rows,
+                            DICOM_TAG,
+                            EXPECTED_VR,
+                            MAX_SOURCE_ROWS_PER_BATCH,
+                            paths,
+                        )
+                    )
+                    .collect()
+                )
+                invalid_validation_sequence_values = sum(
+                    summary["invalidSequenceValues"] for summary in validation_sequence_summaries
+                )
+                if invalid_validation_sequence_values:
+                    raise ValueError(
+                        "Bounded validation source contains invalid sequence item shapes: "
+                        f"{invalid_validation_sequence_values}."
+                    )
+                expected_validation_sequence_items = sum(
+                    summary["sequenceItems"] for summary in validation_sequence_summaries
+                )
+                if expected_validation_sequence_items <= 0:
+                    raise ValueError("Bounded validation selected no sequence items for the new tag.")
+
+            validation_started_at = current_utc_naive()
+            validation_orchestration_id = f"TAG_MANAGER_VALIDATE_{DICOM_TAG}"
             notebookutils.notebook.run(
                 EXTRACTION_NOTEBOOK,
                 7200,
@@ -681,6 +824,27 @@ else:
             )
             if not coverage or coverage <= 0:
                 raise ValueError("Bounded validation produced no populated values for the new tag.")
+            stored_validation_sequence_items = None
+            if expected_validation_sequence_items is not None:
+                sequence_item_count_udf = F.udf(count_sequence_items_json, T.LongType())
+                stored_validation_sequence_items = (
+                    spark.read.format("delta").load(TARGET_PATH)
+                    .where(F.coalesce(F.col("isActive"), F.lit(False)) == F.lit(True))
+                    .join(F.broadcast(validation_sequence_keys), "sourceRecordKey", "inner")
+                    .agg(
+                        F.sum(
+                            sequence_item_count_udf(F.col(TARGET_COLUMN))
+                        ).alias("sequenceItems")
+                    )
+                    .collect()[0]["sequenceItems"]
+                    or 0
+                )
+                if stored_validation_sequence_items != expected_validation_sequence_items:
+                    raise ValueError(
+                        "Bounded sequence validation item-count mismatch: "
+                        f"source={expected_validation_sequence_items}, "
+                        f"stored={stored_validation_sequence_items}."
+                    )
             dictionary_target.update(
                 condition=f"dicomTag = '{DICOM_TAG}'",
                 set={
@@ -701,6 +865,8 @@ else:
                 "extensionRowsInserted": run["extensionRowsInserted"],
                 "extensionRowsUpdated": run["extensionRowsUpdated"],
                 "tagCoverageRows": coverage,
+                "expectedSequenceItems": expected_validation_sequence_items,
+                "storedSequenceItems": stored_validation_sequence_items,
                 "watermarkAdvanced": False,
             })
         except Exception:

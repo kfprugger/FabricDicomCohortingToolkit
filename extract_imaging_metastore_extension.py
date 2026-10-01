@@ -108,13 +108,19 @@ SUPPORTED_VALUE_MODES = {
     "PERSON_NAME_ALPHABETIC",
     "ALL_STRINGS_JSON",
     "ALL_DISTINCT_STRINGS_JSON",
+    "SEQUENCE_ITEMS_JSON",
 }
 TAG_PATH_PATTERN = re.compile(r"^\$\.(?:[0-9A-F]{8}\.Value\[\*\]\.)*[0-9A-F]{8}\.Value\[\*\]$")
 
 
 def default_tag_configuration(tag, keyword, canonical, vr, scope, is_well_known, is_phi, phi_category, enabled):
     json_paths = json.dumps([f"$.{tag}.Value[*]"], separators=(",", ":"))
-    value_mode = "PERSON_NAME_ALPHABETIC" if vr == "PN" else "FIRST_SCALAR"
+    if vr == "PN":
+        value_mode = "PERSON_NAME_ALPHABETIC"
+    elif vr == "SQ":
+        value_mode = "SEQUENCE_ITEMS_JSON"
+    else:
+        value_mode = "FIRST_SCALAR"
     payload = {
         "dicomTag": tag,
         "dicomKeyword": keyword,
@@ -1225,6 +1231,10 @@ def validate_configured_tag(row):
         raise ValueError(f"DICOM tag {tag} targetDataType must be 'string'.")
     if row["valueMode"] not in SUPPORTED_VALUE_MODES:
         raise ValueError(f"DICOM tag {tag} has unsupported valueMode: {row['valueMode']!r}")
+    if row["vrExpected"] == "SQ" and row["valueMode"] != "SEQUENCE_ITEMS_JSON":
+        raise ValueError(f"DICOM tag {tag} VR SQ requires valueMode SEQUENCE_ITEMS_JSON.")
+    if row["valueMode"] == "SEQUENCE_ITEMS_JSON" and row["vrExpected"] != "SQ":
+        raise ValueError(f"DICOM tag {tag} valueMode SEQUENCE_ITEMS_JSON requires VR SQ.")
     if row["pathPrecedence"] not in (None, "LISTED_ORDER"):
         raise ValueError(f"DICOM tag {tag} pathPrecedence must be LISTED_ORDER.")
     parse_configured_paths(row)
@@ -1376,10 +1386,81 @@ def configured_string_values_expr(path: str):
     return F.coalesce(values, F.array().cast("array<string>"))
 
 
+def extract_sequence_items_from_path(root, path):
+    tag_chain = configured_path_tag_chain(path)
+
+    def descend(dataset, index):
+        if not isinstance(dataset, dict):
+            raise ValueError(f"DICOM sequence path {path!r} traversed a non-object item.")
+        element = dataset.get(tag_chain[index])
+        if element is None:
+            return []
+        if not isinstance(element, dict):
+            raise ValueError(f"DICOM sequence path {path!r} resolved to a non-object element.")
+        values = element.get("Value")
+        if values is None:
+            return []
+        if not isinstance(values, list):
+            raise ValueError(f"DICOM sequence path {path!r} has a non-array Value.")
+        if index == len(tag_chain) - 1:
+            if any(not isinstance(value, dict) for value in values):
+                raise ValueError(f"DICOM sequence path {path!r} contains a non-object sequence item.")
+            return values
+        result = []
+        for item in values:
+            result.extend(descend(item, index + 1))
+        return result
+
+    return descend(root, 0)
+
+
+def serialize_sequence_items(root, paths):
+    items = []
+    for path in paths:
+        items.extend(extract_sequence_items_from_path(root, path))
+    if not items:
+        return None
+    return json.dumps(items, ensure_ascii=False, separators=(",", ":"))
+
+
+def sequence_values_udf(sequence_rows):
+    specs = [
+        (
+            wide_column_name(row["canonicalColumnName"]),
+            row["dicomTag"],
+            parse_configured_paths(row),
+        )
+        for row in sequence_rows
+    ]
+    result_schema = T.StructType([
+        T.StructField(column_name, T.StringType(), True)
+        for column_name, _, _ in specs
+    ])
+
+    def parse_sequences(metadata_json):
+        if not metadata_json:
+            return tuple(None for _ in specs)
+        present_tags = [tag for _, tag, _ in specs if f'"{tag}"' in metadata_json]
+        if not present_tags:
+            return tuple(None for _ in specs)
+        try:
+            root = json.loads(metadata_json)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Unable to parse DICOM JSON for configured sequence tags: {exc}") from exc
+        return tuple(
+            serialize_sequence_items(root, paths) if tag in present_tags else None
+            for _, tag, paths in specs
+        )
+
+    return F.udf(parse_sequences, result_schema)
+
+
 def tag_value_expr(row):
     tag = row["dicomTag"]
     paths = parse_configured_paths(row)
     value_mode = row["valueMode"]
+    if value_mode == "SEQUENCE_ITEMS_JSON":
+        raise ValueError("SEQUENCE_ITEMS_JSON is evaluated through the shared sequence parser.")
     if value_mode in ("FIRST_SCALAR", "PERSON_NAME_ALPHABETIC"):
         tag_chain = configured_path_tag_chain(paths[0])
         if len(paths) != 1 or len(tag_chain) != 1:
@@ -1488,6 +1569,12 @@ def build_study_reference(imaging_study, candidate_source):
 def build_wide_rows(joined_source, enabled_tags):
     extracted_at = current_utc_naive()
     with_metadata = joined_source.withColumn("metadata_json", select_metadata_json(joined_source))
+    sequence_rows = [row for row in enabled_tags if row["valueMode"] == "SEQUENCE_ITEMS_JSON"]
+    if sequence_rows:
+        with_metadata = with_metadata.withColumn(
+            "_sequence_values",
+            sequence_values_udf(sequence_rows)(F.col("metadata_json")),
+        )
     select_exprs = [
         F.col("id").alias("id"),
         F.col("id").alias("imagingMetastoreId"),
@@ -1506,7 +1593,11 @@ def build_wide_rows(joined_source, enabled_tags):
     for row in enabled_tags:
         col_name = wide_column_name(row["canonicalColumnName"])
         value_columns.append(col_name)
-        select_exprs.append(tag_value_expr(row).alias(col_name))
+        if row["valueMode"] == "SEQUENCE_ITEMS_JSON":
+            value_expr = F.col("_sequence_values").getField(col_name)
+        else:
+            value_expr = tag_value_expr(row)
+        select_exprs.append(value_expr.alias(col_name))
     staged = with_metadata.select(*select_exprs)
     hash_columns = [F.coalesce(F.col(col_name), F.lit("")) for col_name in value_columns]
     schema = target_schema(enabled_tags)

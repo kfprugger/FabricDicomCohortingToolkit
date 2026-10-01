@@ -257,6 +257,8 @@ A Fabric Data Agent that translates natural-language patient cohorting questions
 
 `Deploy-DataAgent.ps1` waits for accepted operations within a bounded polling deadline. Transient read-only transport/HTTP failures may be retried, but the original mutation is never replayed. Cancellation, permission/TLS failures, and unverified completion stop deployment; only an explicit result-endpoint 404 permits returning the already verified successful operation status.
 
+The deployer now reconciles exact selections through Fabric's native staging element API and publishes both create and update paths before reporting success. It binds 13 Silver clinical/imaging tables, 19 OMOP Gold tables, and the deterministic imaging KQL source, preserving other existing datasource bindings. It imports no hand-built schema trees or generated table/function GUIDs. Use `-TenantId <tenant-guid>` to pin authentication; when available, a cached Az PowerShell credential is used for that tenant without changing the shared Azure CLI login.
+
 ### 2. Materialization Notebook
 
 `materialize_reporting.py` is the critical data preparation step. It solves several challenges:

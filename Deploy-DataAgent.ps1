@@ -42,6 +42,8 @@ param(
 
     [string]$GoldLakehouseName = "healthcare1_msft_gold_omop",
 
+    [string]$TenantId = "",
+
     [switch]$Force
 )
 
@@ -50,15 +52,24 @@ $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $fabricApiBase = "https://api.fabric.microsoft.com/v1"
+. (Join-Path $scriptDir 'data-agent-selection.ps1')
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 function Get-FabricToken {
-    $tokenJson = az account get-access-token --resource https://api.fabric.microsoft.com 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to get Fabric access token. Run 'az login' first.`n$tokenJson"
+    if ($TenantId -and (Get-Command Get-AzAccessToken -ErrorAction SilentlyContinue)) {
+        $nativeToken = Get-AzAccessToken -TenantId $TenantId -ResourceUrl 'https://api.fabric.microsoft.com'
+        if ([string]$nativeToken.TenantId -ne $TenantId) { throw 'Fabric token tenant does not match -TenantId.' }
+        if ($nativeToken.Token -is [Security.SecureString]) { return [Net.NetworkCredential]::new('', $nativeToken.Token).Password }
+        return [string]$nativeToken.Token
     }
-    return ($tokenJson | ConvertFrom-Json).accessToken
+    $arguments = @('account', 'get-access-token', '--resource', 'https://api.fabric.microsoft.com', '--output', 'json')
+    if ($TenantId) { $arguments += @('--tenant', $TenantId) }
+    $tokenJson = & az @arguments
+    if ($LASTEXITCODE -ne 0) { throw "Failed to get Fabric access token. Sign in to the intended tenant first." }
+    $credential = ($tokenJson -join "`n") | ConvertFrom-Json
+    if ($TenantId -and [string]$credential.tenant -ne $TenantId) { throw 'Fabric token tenant does not match -TenantId.' }
+    return $credential.accessToken
 }
 
 function ConvertTo-Base64 ([string]$Text) {
@@ -138,6 +149,23 @@ function Invoke-FabricApi {
     throw "Operation $operationId timed out after $MaxWaitSeconds seconds; success was not verified."
 }
 
+function Complete-DataAgentConfiguration([string]$DataAgentId) {
+    $nativeApi = { param($method, $endpoint, $body) Invoke-FabricApi -Method $method -Uri "$fabricApiBase$endpoint" -Token $token -Body $body }
+    $contracts = @(
+        @{ WorkspaceId = $WorkspaceId; DataAgentId = $DataAgentId; DatasourceId = $SilverArtifactId; Tables = $silverTables; InvokeApi = $nativeApi },
+        @{ WorkspaceId = $WorkspaceId; DataAgentId = $DataAgentId; DatasourceId = $GoldArtifactId; Tables = $goldTables; InvokeApi = $nativeApi }
+    )
+    if ($kqlDb) {
+        $contracts += @{ WorkspaceId = $WorkspaceId; DataAgentId = $DataAgentId; DatasourceId = $kqlDb.id; Tables = @('agent_imaging_summary'); Functions = @('agent_ImagingModalityCounts', 'agent_ImagingStatusCounts', 'agent_ImagingTotals'); InvokeApi = $nativeApi }
+    }
+    foreach ($contract in $contracts) { Set-DataAgentNativeSchemaSelection @contract }
+    $null = Invoke-FabricApi -Method POST -Uri "$fabricApiBase/workspaces/$WorkspaceId/dataAgents/$DataAgentId/staging/publish" -Token $token -Body @{ publishedDescription = "$AgentName - validated native schema selections" }
+    foreach ($contract in $contracts) {
+        Set-DataAgentNativeSchemaSelection @contract -VerifyOnly
+        Set-DataAgentNativeSchemaSelection @contract -VerifyOnly -Published
+    }
+}
+
 # ── Resolve workspace name → ID ──────────────────────────────────────
 
 Write-Host "Authenticating to Fabric API ..." -ForegroundColor Cyan
@@ -178,6 +206,16 @@ if (-not $goldLakehouse) {
 $GoldArtifactId = $goldLakehouse.id
 Write-Host "  Gold:   $GoldLakehouseName → $GoldArtifactId" -ForegroundColor Green
 
+# Optional deterministic KQL aggregate source supplied by hls-data-accelerator Phase 7.
+$kqlDb = $null
+try {
+    $kqlDatabases = Invoke-FabricApi -Method GET -Uri "$fabricApiBase/workspaces/$WorkspaceId/kqlDatabases" -Token $token
+    $kqlDb = $kqlDatabases.value | Where-Object { $_.displayName -eq 'MasimoEventhouse' } | Select-Object -First 1
+    if ($kqlDb) { Write-Host "  KQL:    $($kqlDb.displayName) → $($kqlDb.id)" -ForegroundColor Green }
+} catch {
+    Write-Host "  ⚠ MasimoEventhouse was not available; deploying Lakehouse-only imaging grounding." -ForegroundColor Yellow
+}
+
 # ── Extract instructions from data-agent-instructions.md ─────────────
 
 Write-Host "Reading data-agent-instructions.md ..." -ForegroundColor Cyan
@@ -194,6 +232,16 @@ else {
     throw "Could not extract instruction block from data-agent-instructions.md (expected content between triple backticks)."
 }
 Write-Host "  Extracted $($aiInstructions.Length) characters of instructions." -ForegroundColor Green
+if ($kqlDb) {
+    $aiInstructions += @"
+
+DETERMINISTIC IMAGING AGGREGATES (MANDATORY):
+- Use agent_ImagingModalityCounts() for modality counts, agent_ImagingStatusCounts() for status totals, and agent_ImagingTotals() for overall study and represented-patient totals.
+- Never sum total_studies or total_patients across rows; those values repeat on every modality row.
+- Never use modality_string, nested JSON, or Gold imaging tables for these aggregate questions.
+- Identify the source as agent_imaging_summary derived from Silver ImagingStudy.
+"@
+}
 
 # ── Load few-shot files ──────────────────────────────────────────────
 
@@ -216,11 +264,11 @@ Write-Host "  Silver: $silverCount examples, Gold: $goldCount examples" -Foregro
 Write-Host "Building Data Agent definition ..." -ForegroundColor Cyan
 
 # 1. Top-level data_agent.json
-$dataAgentConfig = @{ '$schema' = "2.1.0" } | ConvertTo-Json
+$dataAgentConfig = @{ '$schema' = "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/dataAgent/2.1.0/schema.json" } | ConvertTo-Json
 
 # 2. Stage config (instructions)
 $stageConfig = @{
-    '$schema'      = "1.0.0"
+    '$schema'      = "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/stageConfiguration/1.0.0/schema.json"
     aiInstructions = $aiInstructions
 } | ConvertTo-Json -Depth 5
 
@@ -230,29 +278,15 @@ $silverTables = @(
     'ImagingMetastore', 'ImagingStudy', 'Location', 'MedicationRequest',
     'Observation', 'Organization', 'Patient', 'Practitioner', 'Procedure'
 )
-$silverElements = @(
-    @{
-        display_name = 'dbo'
-        type         = 'lakehouse_tables.schema'
-        is_selected  = $true
-        children     = @($silverTables | ForEach-Object {
-            @{
-                display_name = $_
-                type         = 'lakehouse_tables.table'
-                is_selected  = $true
-            }
-        })
-    }
-)
 $silverDatasource = @{
-    '$schema'    = "1.0.0"
+    '$schema'    = "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/dataSource/1.0.0/schema.json"
     artifactId   = $SilverArtifactId
     workspaceId  = $WorkspaceId
     displayName  = $SilverLakehouseName
     type         = "lakehouse_tables"
     userDescription = "FHIR R4 silver layer — patient identity, conditions, imaging, medications, encounters, procedures, allergies, observations, reports"
     dataSourceInstructions = "Use this source for any query that requires patient names or individual clinical data. Contains Patient, Condition, ImagingStudy, MedicationRequest, AllergyIntolerance, Encounter, Procedure, Observation, DiagnosticReport."
-    elements     = $silverElements
+    elements     = @()
 } | ConvertTo-Json -Depth 10
 
 # 4. Gold data source — selected tables from OMOP CDM v5.4
@@ -265,34 +299,48 @@ $goldTables = @(
     'provider', 'relationship',
     'visit_detail', 'visit_occurrence'
 )
-$goldElements = @(
-    @{
-        display_name = 'dbo'
-        type         = 'lakehouse_tables.schema'
-        is_selected  = $true
-        children     = @($goldTables | ForEach-Object {
-            @{
-                display_name = $_
-                type         = 'lakehouse_tables.table'
-                is_selected  = $true
-            }
-        })
-    }
-)
 $goldDatasource = @{
-    '$schema'    = "1.0.0"
+    '$schema'    = "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/dataSource/1.0.0/schema.json"
     artifactId   = $GoldArtifactId
     workspaceId  = $WorkspaceId
     displayName  = $GoldLakehouseName
     type         = "lakehouse_tables"
     userDescription = "OMOP CDM v5.4 gold layer — aggregate analytics, demographics (race/ethnicity), conditions, drugs, imaging, visits, measurements. No patient names."
     dataSourceInstructions = "Use this source for aggregate counts, modality breakdowns, demographic distributions, condition co-occurrences, and mortality analysis. Never for patient names."
-    elements     = $goldElements
+    elements     = @()
 } | ConvertTo-Json -Depth 10
 
+$kqlDatasource = $null
+$kqlFewshotsJson = $null
+if ($kqlDb) {
+    $kqlDatasource = @{
+        '$schema' = 'https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/dataSource/1.0.0/schema.json'
+        artifactId = $kqlDb.id
+        workspaceId = $WorkspaceId
+        displayName = $kqlDb.displayName
+        type = 'kusto'
+        userDescription = 'Deterministic imaging aggregates derived from Silver ImagingStudy'
+        dataSourceInstructions = 'Use agent_ImagingModalityCounts() for modality counts, agent_ImagingStatusCounts() for status counts, and agent_ImagingTotals() for overall study and patient totals. Never sum repeated total columns.'
+        elements = @()
+    } | ConvertTo-Json -Depth 20
+    $kqlFewshotsJson = @{
+        '$schema' = 'https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/fewShots/1.0.0/schema.json'
+        fewShots = @(
+            @{ id = [guid]::NewGuid().ToString(); question = 'Count imaging studies by modality from the connected imaging data. Include each count and the data source.'; query = 'agent_ImagingModalityCounts()' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'How many imaging studies are available, and how many distinct patients do they represent? Include the data source.'; query = 'agent_ImagingTotals()' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'Summarize imaging studies by status and modality, returning only aggregate counts.'; query = 'agent_ImagingModalityCounts() | project modality_code, study_count' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'How many CT imaging studies are present? Include the source.'; query = 'agent_ImagingModalityCounts() | where modality_code == "CT" | project modality_code, study_count, data_source="agent_imaging_summary derived from Silver ImagingStudy"' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'Return CR and DX study counts only.'; query = 'agent_ImagingModalityCounts() | where modality_code in ("CR", "DX") | project modality_code, study_count | order by modality_code asc' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'What status values exist for imaging studies and how many studies are in each?'; query = 'agent_ImagingStatusCounts()' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'Return the total imaging studies and total represented patients in one line.'; query = 'agent_ImagingTotals() | project total_studies, total_patients' },
+            @{ id = [guid]::NewGuid().ToString(); question = 'State the imaging aggregate source and its refresh timestamp.'; query = 'agent_ImagingTotals() | project data_source, refreshed_at, scenario_source' }
+        )
+    } | ConvertTo-Json -Depth 20
+}
+
 # Determine folder paths using dataSourceType-displayName convention
-$silverFolder = "lakehouse_tables-$SilverLakehouseName"
-$goldFolder   = "lakehouse_tables-$GoldLakehouseName"
+$silverFolder = "lakehouse-tables-$SilverLakehouseName"
+$goldFolder   = "lakehouse-tables-$GoldLakehouseName"
 
 $definition = @{
     parts = @(
@@ -326,6 +374,13 @@ $definition = @{
             payload     = (ConvertTo-Base64 $goldFewshotsJson)
             payloadType = "InlineBase64"
         }
+    )
+}
+if ($kqlDb) {
+    $kqlFolder = "kusto-$($kqlDb.displayName)"
+    $definition.parts += @(
+        @{ path = "Files/Config/draft/$kqlFolder/datasource.json"; payload = (ConvertTo-Base64 $kqlDatasource); payloadType = 'InlineBase64' },
+        @{ path = "Files/Config/draft/$kqlFolder/fewshots.json"; payload = (ConvertTo-Base64 $kqlFewshotsJson); payloadType = 'InlineBase64' }
     )
 }
 
@@ -371,6 +426,15 @@ if ($existing) {
         }
         Write-Host "  Found existing agent $updatedAgentId — updating definition ..." -ForegroundColor Yellow
         $updateUri = "$listUri/$updatedAgentId/updateDefinition"
+        $current = Invoke-FabricApi -Method POST -Uri "$listUri/$updatedAgentId/getDefinition" -Token $token -Body @{}
+        $replacedArtifacts = @($SilverArtifactId, $GoldArtifactId)
+        if ($kqlDb) { $replacedArtifacts += $kqlDb.id }
+        foreach ($part in @($current.definition.parts | Where-Object { $_.path.StartsWith('Files/Config/draft/') -and $_.path.EndsWith('/datasource.json') })) {
+            $source = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($part.payload)) | ConvertFrom-Json -Depth 100
+            if ($source.artifactId -in $replacedArtifacts) { continue }
+            $folder = $part.path.Substring(0, $part.path.LastIndexOf('/') + 1)
+            $definition.parts += @($current.definition.parts | Where-Object { $_.path.StartsWith($folder) })
+        }
         Invoke-FabricApi -Method POST -Uri $updateUri -Token $token -Body @{ definition = $definition }
         $updatedAgents = Invoke-FabricApi -Method GET -Uri $listUri -Token $token
         $updatedAgent = $updatedAgents.value | Where-Object { $_.displayName -eq $AgentName } | Select-Object -First 1
@@ -378,15 +442,12 @@ if ($existing) {
         if (-not $updatedAgentId) {
             throw "Data Agent '$AgentName' update completed but the agent ID could not be resolved."
         }
+        Complete-DataAgentConfiguration -DataAgentId $updatedAgentId
         Write-Host ""
         Write-Host "Data Agent updated successfully!" -ForegroundColor Green
         Write-Host "  Agent ID:    $updatedAgentId" -ForegroundColor White
         Write-Host "  Workspace:   $FabricWorkspaceName ($WorkspaceId)" -ForegroundColor White
         Write-Host ""
-        Write-Host "Next steps:" -ForegroundColor Cyan
-        Write-Host "  1. Open the Data Agent in the Fabric portal to verify configuration" -ForegroundColor White
-        Write-Host "  2. Test with sample questions from data-agent-instructions.md" -ForegroundColor White
-        Write-Host "  3. Publish the agent when ready" -ForegroundColor White
         return
     }
 }
@@ -431,14 +492,10 @@ if (-not $agentId) {
 if (-not $agentId) {
     throw "Data Agent '$AgentName' create completed but the agent ID could not be resolved."
 }
+Complete-DataAgentConfiguration -DataAgentId $agentId
 Write-Host ""
 Write-Host "Data Agent created successfully!" -ForegroundColor Green
 Write-Host "  Agent ID:    $agentId" -ForegroundColor White
 Write-Host "  Workspace:   $FabricWorkspaceName ($WorkspaceId)" -ForegroundColor White
 Write-Host "  Name:        $AgentName" -ForegroundColor White
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Open the Data Agent in the Fabric portal to verify configuration" -ForegroundColor White
-Write-Host "  2. Select which tables to expose in each data source" -ForegroundColor White
-Write-Host "  3. Test with sample questions from data-agent-instructions.md" -ForegroundColor White
-Write-Host "  4. Publish the agent when ready" -ForegroundColor White

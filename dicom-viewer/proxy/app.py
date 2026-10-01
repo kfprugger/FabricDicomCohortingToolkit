@@ -18,7 +18,7 @@ import zipfile
 from collections import defaultdict
 from functools import lru_cache
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_from_directory
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from azure.storage.filedatalake import DataLakeServiceClient
 import pydicom
@@ -32,6 +32,7 @@ INDEX_PATH = os.environ.get("DICOM_INDEX_PATH", "/app/dicom_index.json")
 FABRIC_SQL_SERVER = os.environ.get("FABRIC_SQL_SERVER", "")
 FABRIC_SQL_DATABASE = os.environ.get("FABRIC_SQL_DATABASE", "")
 REFRESH_INTERVAL_MIN = int(os.environ.get("INDEX_REFRESH_INTERVAL_MIN", "30"))
+OHIF_DIST_PATH = os.environ.get("OHIF_DIST_PATH", "/app/ohif-dist")
 
 _index: dict = {}
 _index_lock = threading.Lock()
@@ -463,6 +464,20 @@ def _find_instance(study_uid, series_uid, sop_uid):
             return i
     return None
 
+
+@app.route("/")
+def ohif_index():
+    """Serve the bundled OHIF application from the reachable Container App."""
+    return send_from_directory(OHIF_DIST_PATH, "index.html")
+
+
+@app.route("/<path:asset_path>")
+def ohif_asset(asset_path):
+    """Serve OHIF assets and fall back to index.html for client-side routes."""
+    candidate = os.path.join(OHIF_DIST_PATH, asset_path)
+    if os.path.isfile(candidate):
+        return send_from_directory(OHIF_DIST_PATH, asset_path)
+    return send_from_directory(OHIF_DIST_PATH, "index.html")
 
 start_index_manager()
 

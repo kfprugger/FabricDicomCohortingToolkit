@@ -5,7 +5,6 @@
 # DICOM viewer build artifacts
 dicom-viewer/ohif-build/
 dicom-viewer/proxy/ohif-dist/
-dicom-viewer/proxy/requirements.lock
 dicom-viewer/proxy-deploy.zip
 dicom-viewer/proxy/.python_packages/
 dicom-viewer/proxy/dicom_index.json
@@ -14,3 +13,4 @@ __pycache__/
 *.pyc
 dicom-viewer/state-tracking/
 dicom-viewer/.deployment-state.json
+.DS_Store

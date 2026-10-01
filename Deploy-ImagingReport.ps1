@@ -151,12 +151,12 @@ if (-not $OhifViewerBaseUrl) {
     if (Test-Path $stateFile) {
         try {
             $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-            if ($state.swaHostname) {
-                $swaHost = $state.swaHostname
-                if ($swaHost -notmatch '^https?://') {
-                    $swaHost = "https://$swaHost"
+            $viewerHost = if ($state.viewerUrl) { [string]$state.viewerUrl } else { [string]$state.swaHostname }
+            if ($viewerHost) {
+                if ($viewerHost -notmatch '^https?://') {
+                    $viewerHost = "https://$viewerHost"
                 }
-                $OhifViewerBaseUrl = "$swaHost/viewer?StudyInstanceUIDs="
+                $OhifViewerBaseUrl = "$($viewerHost.TrimEnd('/'))/viewer?StudyInstanceUIDs="
                 Write-Host "  ✓ OHIF Viewer (state): $OhifViewerBaseUrl" -ForegroundColor Green
             }
         } catch {

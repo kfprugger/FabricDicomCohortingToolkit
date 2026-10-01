@@ -173,12 +173,12 @@ if (-not $OhifViewerBaseUrl) {
     if (Test-Path $stateFile) {
         try {
             $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-            if ($state.swaHostname) {
-                $swaHost = [string]$state.swaHostname
-                if ($swaHost -notmatch '^https?://') {
-                    $swaHost = "https://$swaHost"
+            $viewerHost = if ($state.viewerUrl) { [string]$state.viewerUrl } else { [string]$state.swaHostname }
+            if ($viewerHost) {
+                if ($viewerHost -notmatch '^https?://') {
+                    $viewerHost = "https://$viewerHost"
                 }
-                $OhifViewerBaseUrl = "$swaHost/viewer?StudyInstanceUIDs="
+                $OhifViewerBaseUrl = "$($viewerHost.TrimEnd('/'))/viewer?StudyInstanceUIDs="
                 Write-Host "OHIF Viewer (from state): $OhifViewerBaseUrl"
             }
         } catch {
@@ -222,6 +222,26 @@ Write-Host "Patched OHIF URL: $OhifViewerBaseUrl"
 
 $pyLines = $pyContent -split "`n" | ForEach-Object { "$_`n" }
 
+$overviewMarkdownLines = @'
+# Materialize Reporting Tables
+
+This notebook builds flat, report-ready Delta tables in `healthcare1_reporting_gold` for the Direct Lake imaging Power BI report.
+
+It reads HDS Silver FHIR/imaging tables, Gold OMOP demographics, and precomputes fields that Direct Lake cannot calculate at query time.
+'@ -split "`n" | ForEach-Object { "$_`n" }
+$executionMarkdownLines = @'
+## Execution steps
+
+1. Resolve workspace and lakehouse IDs dynamically.
+2. Resolve the OHIF viewer base URL supplied by deployment.
+3. Build `ImagingStudyReporting` from Silver `ImagingStudy`, including canonical StudyInstanceUID, patient UUID, modality, study year, and viewer URL.
+4. Build `PatientReporting` from Silver `Patient`, then add imaging-only patients from DICOM metadata when needed.
+5. Build `DicomFileReporting` from Silver `ImagingMetastore` for file/study/series/SOP lookup.
+6. Build `PersonDemographicsReporting` from Gold OMOP `person` and `concept`.
+7. Overwrite the reporting Delta tables consumed by the Direct Lake semantic model.
+'@ -split "`n" | ForEach-Object { "$_`n" }
+
+
 $ipynb = @{
     nbformat = 4
     nbformat_minor = 5
@@ -232,10 +252,21 @@ $ipynb = @{
     }
     cells = @(
         @{
+            cell_type = "markdown"
+            source = $overviewMarkdownLines
+            metadata = @{}
+        },
+        @{
+            cell_type = "markdown"
+            source = $executionMarkdownLines
+            metadata = @{}
+        },
+        @{
             cell_type = "code"
             source = $pyLines
             metadata = @{}
             outputs = @()
+            execution_count = $null
         }
     )
 }

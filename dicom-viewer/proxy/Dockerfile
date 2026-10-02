@@ -10,6 +10,9 @@ ENV ACCEPT_EULA=Y
 RUN tdnf install -y msodbcsql18 unixODBC krb5-libs && \
     tdnf clean all
 
+# Networks that block files.pythonhosted.org can pass a mirror with
+# --build-arg PIP_INDEX_URL=<index>; --require-hashes still pins every artifact.
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY requirements.lock .
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 

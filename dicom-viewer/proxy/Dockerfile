@@ -1,13 +1,14 @@
-FROM mcr.microsoft.com/cbl-mariner/base/python:3@sha256:d1dd9c1296ec1a311efc2dd35d74a9c8f2be3c5e264d9a26c847b1123807312c
+# Azure Linux 3.0 (CBL-Mariner successor) with Python 3.12; pydicom >= 2.4.5 requires Python >= 3.10.
+FROM mcr.microsoft.com/azurelinux/base/python:3.12@sha256:b006d366ab67c2170e5ed5b7d34500e0291373df7faedc1d1ca2472944f6c7b2
 
-# CBL-Mariner uses python3, create symlink for compatibility
+# The base image ships python3 only; keep the conventional `python` name available
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 
 # Install ODBC Driver 18 for SQL Server (needed for runtime index refresh)
 ENV ACCEPT_EULA=Y
-RUN tdnf install -y msodbcsql18 unixODBC krb5-libs && \
+RUN tdnf install -y msodbcsql18 unixODBC krb5 && \
     tdnf clean all
 
 # Networks that block files.pythonhosted.org can pass a mirror with

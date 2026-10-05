@@ -8,6 +8,8 @@ function Set-DataAgentNativeSchemaSelection {
         [string]$Schema = 'dbo',
         [switch]$VerifyOnly,
         [switch]$Published,
+        # A just-attached datasource syncs its element tree asynchronously.
+        [int]$SyncWaitSeconds = 300,
         [Parameter(Mandatory)][scriptblock]$InvokeApi
     )
     if ($Published -and -not $VerifyOnly) { throw 'Published selections are read-only; use -VerifyOnly.' }
@@ -32,15 +34,27 @@ function Set-DataAgentNativeSchemaSelection {
             $continuation = if ($page.PSObject.Properties['continuationToken']) { [string]$page.continuationToken } else { '' }
         } while ($continuation)
     }
-    $objects = @(Read-NativeObjects)
-    foreach ($target in @($Tables | ForEach-Object { @{ Name = $_; Type = 'Table' } }) + @($Functions | ForEach-Object { @{ Name = $_; Type = 'Function' } })) {
-        $match = @($objects | Where-Object {
-            $_.Element.type -eq $target.Type -and $_.Element.displayName -eq $target.Name -and
-            ($target.Type -ne 'Table' -or -not $_.Schema -or $_.Schema -eq $Schema)
-        })
-        if ($match.Count -ne 1 -or -not $match[0].Element.id -or $match[0].Element.state -ne 'Available') {
-            throw "Missing, ambiguous, or unavailable native $($target.Type) '$($target.Name)' in datasource '$DatasourceId'. No selection updates were made."
+    # Existing tables and functions can be absent from the first reads of a datasource attached
+    # moments ago. Re-read within a bounded window before calling a target missing; nothing is
+    # selected until every target resolves.
+    $targets = @($Tables | ForEach-Object { @{ Name = $_; Type = 'Table' } }) + @($Functions | ForEach-Object { @{ Name = $_; Type = 'Function' } })
+    $attempts = [Math]::Max(1, [int][Math]::Ceiling($SyncWaitSeconds / 15) + 1)
+    for ($attempt = 1; ; $attempt++) {
+        $objects = @(Read-NativeObjects)
+        $problem = ''
+        foreach ($target in $targets) {
+            $match = @($objects | Where-Object {
+                $_.Element.type -eq $target.Type -and $_.Element.displayName -eq $target.Name -and
+                ($target.Type -ne 'Table' -or -not $_.Schema -or $_.Schema -eq $Schema)
+            })
+            if ($match.Count -ne 1 -or -not $match[0].Element.id -or $match[0].Element.state -ne 'Available') {
+                $problem = "Missing, ambiguous, or unavailable native $($target.Type) '$($target.Name)' in datasource '$DatasourceId'."
+                break
+            }
         }
+        if (-not $problem) { break }
+        if ($attempt -ge $attempts) { throw "$problem No selection updates were made." }
+        Start-Sleep -Seconds 15
     }
     if (-not $VerifyOnly) {
     foreach ($object in $objects) {

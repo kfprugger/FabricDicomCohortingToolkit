@@ -455,22 +455,25 @@ Write-Host "  Proxy URL    : $proxyUrl" -ForegroundColor Green
 Write-Host "  SWA Hostname : https://$swaHostname" -ForegroundColor Green
 
 # ── 4. Build OHIF Viewer ──
-if ($SkipOhifBuild) {
-    Write-Host "`n[4/6] Skipping OHIF build (-SkipOhifBuild)" -ForegroundColor Yellow
+$ohifRevision = "9a2d2c3d136725b2b322a47340ecf684e55dd253" # v3.13.0-beta.82, Node >=18 / Yarn >=1.20
+$prebuiltMarker = Join-Path $scriptDir 'ohif-build/platform/app/dist/.source-revision'
+$prebuiltRevision = if (Test-Path $prebuiltMarker) { ([string](Get-Content $prebuiltMarker -Raw)).Trim() } else { '' }
+$verifiedPrebuilt = $prebuiltRevision -eq $ohifRevision -and (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")
+if ($SkipOhifBuild -or $verifiedPrebuilt) {
+    if (-not (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")) { throw 'No compiled OHIF viewer exists; build it before deploying.' }
+    Write-Host "`n[4/6] Using compiled OHIF viewer (verified artifact or -SkipOhifBuild)" -ForegroundColor Yellow
     # Still update the config in dist with the current proxy URL
     $distConfig = "$scriptDir/ohif-build/platform/app/dist/app-config.js"
-    if (Test-Path $distConfig) {
-        Write-Host "  Updating proxy URL in existing dist..."
-        $configContent = Get-Content "$scriptDir/ohif/app-config.js" -Raw
-        $configContent = $configContent.Replace("__PROXY_URL__", $proxyUrl)
-        Set-Content $distConfig $configContent
-    }
+    if (-not (Test-Path $distConfig)) { throw 'Compiled OHIF viewer is missing its runtime app-config.js.' }
+    Write-Host "  Updating proxy URL in existing dist..."
+    $configContent = Get-Content "$scriptDir/ohif/app-config.js" -Raw
+    $configContent = $configContent.Replace("__PROXY_URL__", $proxyUrl)
+    Set-Content $distConfig $configContent
 } else {
     Write-Host "`n[4/6] Building OHIF Viewer..." -ForegroundColor Yellow
 
     $ohifBuildDir = "$scriptDir/ohif-build"
     # This deployer uses Yarn/Webpack; moving master has migrated to Node 24/pnpm.
-    $ohifRevision = "9a2d2c3d136725b2b322a47340ecf684e55dd253" # v3.13.0-beta.82, Node >=18 / Yarn >=1.20
     $cachedRevision = if (Test-Path "$ohifBuildDir/.git") { git -C $ohifBuildDir rev-parse HEAD 2>$null } else { "" }
     if ($cachedRevision -ne $ohifRevision) {
         if (Test-Path $ohifBuildDir) { Remove-Item -Recurse -Force $ohifBuildDir }

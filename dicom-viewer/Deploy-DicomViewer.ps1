@@ -83,7 +83,7 @@ function Get-FabricAccessToken {
 }
 
 $fabricToken = Get-FabricAccessToken
-$fabricHeaders = @{ "Authorization" = "Bearer $fabricToken" }
+$fabricHeaders = @{ "Authorization" = "Bearer $fabricToken"; "x-ms-fabric-skill" = "e2e-medallion-architecture" }
 $fabricApi = "https://api.fabric.microsoft.com/v1"
 
 function Invoke-FabricApi {
@@ -455,27 +455,54 @@ Write-Host "  Proxy URL    : $proxyUrl" -ForegroundColor Green
 Write-Host "  SWA Hostname : https://$swaHostname" -ForegroundColor Green
 
 # ── 4. Build OHIF Viewer ──
-if ($SkipOhifBuild) {
-    Write-Host "`n[4/6] Skipping OHIF build (-SkipOhifBuild)" -ForegroundColor Yellow
+$ohifRevision = "9a2d2c3d136725b2b322a47340ecf684e55dd253" # v3.13.0-beta.82, Node >=18 / Yarn >=1.20
+$prebuiltMarker = Join-Path $scriptDir 'ohif-build/platform/app/dist/.source-revision'
+$prebuiltRevision = if (Test-Path $prebuiltMarker) { ([string](Get-Content $prebuiltMarker -Raw)).Trim() } else { '' }
+$verifiedPrebuilt = $prebuiltRevision -eq $ohifRevision -and (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")
+if ($verifiedPrebuilt) {
+    $distRoot = Join-Path $scriptDir 'ohif-build/platform/app/dist'
+    $manifestPath = Join-Path $distRoot '.asset-manifest.json'
+    if (-not (Test-Path $manifestPath)) { throw 'Prebuilt OHIF asset manifest is missing.' }
+    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.sourceRevision -ne $ohifRevision -or @($manifest.files.PSObject.Properties).Count -lt 1) { throw 'Prebuilt OHIF asset manifest is invalid.' }
+    foreach ($asset in $manifest.files.PSObject.Properties) {
+        if ([IO.Path]::IsPathRooted($asset.Name) -or $asset.Name.Split('/') -contains '..') { throw 'Prebuilt OHIF manifest contains an unsafe asset path.' }
+        $path = Join-Path $distRoot $asset.Name
+        if (-not (Test-Path $path -PathType Leaf) -or (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset.Value) {
+            throw "Prebuilt OHIF asset is missing or corrupted: $($asset.Name)"
+        }
+    }
+}
+if ($SkipOhifBuild -or $verifiedPrebuilt) {
+    if (-not (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")) { throw 'No compiled OHIF viewer exists; build it before deploying.' }
+    Write-Host "`n[4/6] Using compiled OHIF viewer (verified artifact or -SkipOhifBuild)" -ForegroundColor Yellow
     # Still update the config in dist with the current proxy URL
     $distConfig = "$scriptDir/ohif-build/platform/app/dist/app-config.js"
-    if (Test-Path $distConfig) {
-        Write-Host "  Updating proxy URL in existing dist..."
-        $configContent = Get-Content "$scriptDir/ohif/app-config.js" -Raw
-        $configContent = $configContent.Replace("__PROXY_URL__", $proxyUrl)
-        Set-Content $distConfig $configContent
-    }
+    if (-not (Test-Path $distConfig)) { throw 'Compiled OHIF viewer is missing its runtime app-config.js.' }
+    Write-Host "  Updating proxy URL in existing dist..."
+    $configContent = Get-Content "$scriptDir/ohif/app-config.js" -Raw
+    $configContent = $configContent.Replace("__PROXY_URL__", $proxyUrl)
+    Set-Content $distConfig $configContent
 } else {
     Write-Host "`n[4/6] Building OHIF Viewer..." -ForegroundColor Yellow
 
     $ohifBuildDir = "$scriptDir/ohif-build"
-    if (-not (Test-Path "$ohifBuildDir/platform/app/node_modules")) {
+    # This deployer uses Yarn/Webpack; moving master has migrated to Node 24/pnpm.
+    $cachedRevision = if (Test-Path "$ohifBuildDir/.git") { git -C $ohifBuildDir rev-parse HEAD 2>$null } else { "" }
+    if ($cachedRevision -ne $ohifRevision) {
         if (Test-Path $ohifBuildDir) { Remove-Item -Recurse -Force $ohifBuildDir }
-        Write-Host "  Cloning OHIF Viewer v3..."
-        git clone --depth 1 --branch master https://github.com/OHIF/Viewers.git $ohifBuildDir 2>&1 | Out-Null
-        Assert-LastExitCode "OHIF source clone"
+        Write-Host "  Fetching pinned OHIF Viewer revision $ohifRevision..."
+        git init $ohifBuildDir 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF repository initialization"
+        git -C $ohifBuildDir remote add origin https://github.com/OHIF/Viewers.git
+        Assert-LastExitCode "OHIF repository remote"
+        git -C $ohifBuildDir fetch --depth 1 origin $ohifRevision 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF pinned source fetch"
+        git -C $ohifBuildDir checkout --detach FETCH_HEAD 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF pinned source checkout"
+        if ((git -C $ohifBuildDir rev-parse HEAD) -ne $ohifRevision) { throw "OHIF checkout does not match the pinned revision." }
     } else {
-        Write-Host "  Using existing OHIF source (delete ohif-build/ to force fresh clone)"
+        Write-Host "  Using verified pinned OHIF source $ohifRevision"
     }
 
     # Write config with proxy URL
@@ -487,7 +514,8 @@ if ($SkipOhifBuild) {
     Copy-Item "$scriptDir/ohif/staticwebapp.config.json" "$ohifBuildDir/platform/app/staticwebapp.config.json" -Force
 
     # Install dependencies if needed
-    if (-not (Test-Path "$ohifBuildDir/node_modules")) {
+    $dependencyMarker = Join-Path $ohifBuildDir '.dependencies-ready'
+    if (-not (Test-Path "$ohifBuildDir/node_modules") -or -not (Test-Path $dependencyMarker) -or ([string](Get-Content $dependencyMarker -Raw)).Trim() -ne $ohifRevision) {
         Write-Host "  Ensuring yarn is available..."
         if (-not (Get-Command yarn -ErrorAction SilentlyContinue)) {
             npm install -g yarn 2>&1 | Out-Null
@@ -496,8 +524,9 @@ if ($SkipOhifBuild) {
         Push-Location $ohifBuildDir
         try {
             Write-Host "  Installing dependencies (this takes a few minutes)..."
-            yarn install 2>&1 | Out-Null
+            yarn install --frozen-lockfile
             Assert-LastExitCode "OHIF dependency install"
+            Set-Content -Path $dependencyMarker -Value $ohifRevision -NoNewline
         } finally {
             Pop-Location
         }

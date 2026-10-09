@@ -459,6 +459,20 @@ $ohifRevision = "9a2d2c3d136725b2b322a47340ecf684e55dd253" # v3.13.0-beta.82, No
 $prebuiltMarker = Join-Path $scriptDir 'ohif-build/platform/app/dist/.source-revision'
 $prebuiltRevision = if (Test-Path $prebuiltMarker) { ([string](Get-Content $prebuiltMarker -Raw)).Trim() } else { '' }
 $verifiedPrebuilt = $prebuiltRevision -eq $ohifRevision -and (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")
+if ($verifiedPrebuilt) {
+    $distRoot = Join-Path $scriptDir 'ohif-build/platform/app/dist'
+    $manifestPath = Join-Path $distRoot '.asset-manifest.json'
+    if (-not (Test-Path $manifestPath)) { throw 'Prebuilt OHIF asset manifest is missing.' }
+    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.sourceRevision -ne $ohifRevision -or @($manifest.files.PSObject.Properties).Count -lt 1) { throw 'Prebuilt OHIF asset manifest is invalid.' }
+    foreach ($asset in $manifest.files.PSObject.Properties) {
+        if ([IO.Path]::IsPathRooted($asset.Name) -or $asset.Name.Split('/') -contains '..') { throw 'Prebuilt OHIF manifest contains an unsafe asset path.' }
+        $path = Join-Path $distRoot $asset.Name
+        if (-not (Test-Path $path -PathType Leaf) -or (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset.Value) {
+            throw "Prebuilt OHIF asset is missing or corrupted: $($asset.Name)"
+        }
+    }
+}
 if ($SkipOhifBuild -or $verifiedPrebuilt) {
     if (-not (Test-Path "$scriptDir/ohif-build/platform/app/dist/index.html")) { throw 'No compiled OHIF viewer exists; build it before deploying.' }
     Write-Host "`n[4/6] Using compiled OHIF viewer (verified artifact or -SkipOhifBuild)" -ForegroundColor Yellow

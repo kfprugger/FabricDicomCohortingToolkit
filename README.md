@@ -84,7 +84,7 @@ A deployed [Microsoft Fabric HDS](https://learn.microsoft.com/en-us/industry/hea
 
 - Azure CLI (`az`) authenticated
 - Contributor access to create: Container App, Static Web App, Container Registry
-- Node.js 18+ and Yarn (for OHIF build)
+- Node.js 18+ and Yarn Classic 1.22.22 (for the pinned OHIF build)
 
 ## Project Structure
 
@@ -147,6 +147,8 @@ cd dicom-viewer
 ```
 
 This deploys the OHIF Viewer (Static Web App) + DICOMweb proxy (Container App), rebuilds the DICOM index, and grants the proxy's managed identity workspace access. The viewer URL is needed by Step 3.
+
+The Yarn/Webpack deployer pins OHIF revision `9a2d2c3d136725b2b322a47340ecf684e55dd253` (`v3.13.0-beta.82`), matching the previously built viewer and its Node 18+/Yarn toolchain. It does not follow moving `master`, which now requires Node 24/pnpm and a different build layout. A cache from another revision is rebuilt; dependency installation uses the lockfile and is marked reusable only after success. Install failures remain visible in the deployment logs.
 
 Image builds use `az acr build --no-logs` to avoid streamed-log encoding failures on Windows. Both the initial and fallback build must report `Succeeded` and return a valid immutable SHA-256 image digest; a CLI disconnect or changed image tag is not treated as build success.
 

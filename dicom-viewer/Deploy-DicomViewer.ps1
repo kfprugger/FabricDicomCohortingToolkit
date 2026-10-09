@@ -83,7 +83,7 @@ function Get-FabricAccessToken {
 }
 
 $fabricToken = Get-FabricAccessToken
-$fabricHeaders = @{ "Authorization" = "Bearer $fabricToken" }
+$fabricHeaders = @{ "Authorization" = "Bearer $fabricToken"; "x-ms-fabric-skill" = "e2e-medallion-architecture" }
 $fabricApi = "https://api.fabric.microsoft.com/v1"
 
 function Invoke-FabricApi {
@@ -469,13 +469,23 @@ if ($SkipOhifBuild) {
     Write-Host "`n[4/6] Building OHIF Viewer..." -ForegroundColor Yellow
 
     $ohifBuildDir = "$scriptDir/ohif-build"
-    if (-not (Test-Path "$ohifBuildDir/platform/app/node_modules")) {
+    # This deployer uses Yarn/Webpack; moving master has migrated to Node 24/pnpm.
+    $ohifRevision = "9a2d2c3d136725b2b322a47340ecf684e55dd253" # v3.13.0-beta.82, Node >=18 / Yarn >=1.20
+    $cachedRevision = if (Test-Path "$ohifBuildDir/.git") { git -C $ohifBuildDir rev-parse HEAD 2>$null } else { "" }
+    if ($cachedRevision -ne $ohifRevision) {
         if (Test-Path $ohifBuildDir) { Remove-Item -Recurse -Force $ohifBuildDir }
-        Write-Host "  Cloning OHIF Viewer v3..."
-        git clone --depth 1 --branch master https://github.com/OHIF/Viewers.git $ohifBuildDir 2>&1 | Out-Null
-        Assert-LastExitCode "OHIF source clone"
+        Write-Host "  Fetching pinned OHIF Viewer revision $ohifRevision..."
+        git init $ohifBuildDir 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF repository initialization"
+        git -C $ohifBuildDir remote add origin https://github.com/OHIF/Viewers.git
+        Assert-LastExitCode "OHIF repository remote"
+        git -C $ohifBuildDir fetch --depth 1 origin $ohifRevision 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF pinned source fetch"
+        git -C $ohifBuildDir checkout --detach FETCH_HEAD 2>&1 | Out-Null
+        Assert-LastExitCode "OHIF pinned source checkout"
+        if ((git -C $ohifBuildDir rev-parse HEAD) -ne $ohifRevision) { throw "OHIF checkout does not match the pinned revision." }
     } else {
-        Write-Host "  Using existing OHIF source (delete ohif-build/ to force fresh clone)"
+        Write-Host "  Using verified pinned OHIF source $ohifRevision"
     }
 
     # Write config with proxy URL
@@ -487,7 +497,8 @@ if ($SkipOhifBuild) {
     Copy-Item "$scriptDir/ohif/staticwebapp.config.json" "$ohifBuildDir/platform/app/staticwebapp.config.json" -Force
 
     # Install dependencies if needed
-    if (-not (Test-Path "$ohifBuildDir/node_modules")) {
+    $dependencyMarker = Join-Path $ohifBuildDir '.dependencies-ready'
+    if (-not (Test-Path "$ohifBuildDir/node_modules") -or -not (Test-Path $dependencyMarker) -or ([string](Get-Content $dependencyMarker -Raw)).Trim() -ne $ohifRevision) {
         Write-Host "  Ensuring yarn is available..."
         if (-not (Get-Command yarn -ErrorAction SilentlyContinue)) {
             npm install -g yarn 2>&1 | Out-Null
@@ -496,8 +507,9 @@ if ($SkipOhifBuild) {
         Push-Location $ohifBuildDir
         try {
             Write-Host "  Installing dependencies (this takes a few minutes)..."
-            yarn install 2>&1 | Out-Null
+            yarn install --frozen-lockfile
             Assert-LastExitCode "OHIF dependency install"
+            Set-Content -Path $dependencyMarker -Value $ohifRevision -NoNewline
         } finally {
             Pop-Location
         }

@@ -512,7 +512,8 @@ if ($SkipOhifBuild) {
     Push-Location "$ohifBuildDir/platform/app"
     try {
         $env:NODE_ENV = "production"
-        node --max_old_space_size=8096 ./../../node_modules/webpack/bin/webpack.js --config .webpack/webpack.pwa.js 2>&1 | Out-Null
+        # 6 GiB heap leaves room for Terser workers inside an 8 GiB container; 8096 MB was OOM-killed (exit 137) at 4 GiB.
+        node --max_old_space_size=6144 ./../../node_modules/webpack/bin/webpack.js --config .webpack/webpack.pwa.js 2>&1 | Out-Null
         Assert-LastExitCode "OHIF webpack build"
     } finally {
         Pop-Location

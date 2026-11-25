@@ -471,8 +471,10 @@ if ($SkipOhifBuild) {
     $ohifBuildDir = "$scriptDir/ohif-build"
     if (-not (Test-Path "$ohifBuildDir/platform/app/node_modules")) {
         if (Test-Path $ohifBuildDir) { Remove-Item -Recurse -Force $ohifBuildDir }
-        Write-Host "  Cloning OHIF Viewer v3..."
-        git clone --depth 1 --branch master https://github.com/OHIF/Viewers.git $ohifBuildDir 2>&1 | Out-Null
+        # Pin a release: OHIF master moved to pnpm and Node >= 24 (v3.13+), which this yarn/Node 20 build cannot install.
+        $ohifRef = "v3.12.19"
+        Write-Host "  Cloning OHIF Viewer $ohifRef..."
+        git clone --depth 1 --branch $ohifRef https://github.com/OHIF/Viewers.git $ohifBuildDir 2>&1 | Out-Null
         Assert-LastExitCode "OHIF source clone"
     } else {
         Write-Host "  Using existing OHIF source (delete ohif-build/ to force fresh clone)"

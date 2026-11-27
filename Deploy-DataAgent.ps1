@@ -95,7 +95,8 @@ function Invoke-FabricApi {
         Headers = $headers
         ResponseHeadersVariable = 'respHeaders'
         StatusCodeVariable = 'statusCode'
-        TimeoutSec = [Math]::Min(100, $MaxWaitSeconds)
+        # A synchronous create can take longer than 100 s on a busy capacity (med-1127, 2026-11-27).
+        TimeoutSec = [Math]::Min(300, $MaxWaitSeconds)
     }
     if ($Body) { $params.Body = ($Body | ConvertTo-Json -Depth 20) }
     # A lost mutation response is ambiguous: never reissue the original request.
@@ -473,10 +474,28 @@ for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         if ($_ -match 'ItemDisplayNameNotAvailableYet' -and $attempt -lt $maxRetries) {
             Write-Host "  Name not available yet, retrying in 15s (attempt $attempt/$maxRetries) ..." -ForegroundColor Yellow
             Start-Sleep -Seconds 15
+            continue
         }
-        else {
-            throw
+        $timedOut = $false
+        $inner = $_.Exception
+        while ($inner) {
+            if ($inner -is [System.TimeoutException] -or $inner -is [System.OperationCanceledException]) { $timedOut = $true }
+            $inner = $inner.InnerException
         }
+        if (-not $timedOut) { throw }
+        # The response was lost, not the request: the create may have committed. Never reissue the
+        # POST; wait for the uniquely named agent to appear instead.
+        Write-Host "  Create response timed out; checking whether '$AgentName' was created ..." -ForegroundColor Yellow
+        for ($wait = 0; $wait -lt 300 -and -not $result; $wait += 15) {
+            Start-Sleep -Seconds 15
+            try {
+                $agents = Invoke-FabricApi -Method GET -Uri $listUri -Token $token
+                $result = $agents.value | Where-Object { $_.displayName -eq $AgentName } | Select-Object -First 1
+            }
+            catch { Write-Host "  Agent lookup failed; retrying: $_" -ForegroundColor Yellow }
+        }
+        if (-not $result) { throw "Data Agent '$AgentName' create timed out and the agent did not appear within 300 seconds." }
+        break
     }
 }
 
